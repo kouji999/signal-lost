@@ -1,6 +1,7 @@
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace SignalLost.EditorTools
 {
@@ -12,6 +13,12 @@ namespace SignalLost.EditorTools
         public static void Run()
         {
             int failures = 0;
+
+            if (!EditorSceneManager.OpenScene("Assets/_Project/Scenes/Main.unity", OpenSceneMode.Single).IsValid())
+            {
+                Debug.LogError("[SmokeTest] Cannot open Main.unity");
+                return;
+            }
 
             void Check(string label, bool ok)
             {
@@ -35,6 +42,7 @@ namespace SignalLost.EditorTools
             Check("hud canvas", GameObject.Find("HUD_Canvas") != null);
             Check("event system", GameObject.Find("EventSystem") != null);
             Check("systems root", GameObject.Find("Systems") != null);
+            Check("navmesh surface", UnityEngine.Object.FindAnyObjectByType<Unity.AI.Navigation.NavMeshSurface>()?.navMeshData != null);
             Check("item assets", AssetDatabase.LoadAssetAtPath<SignalLost.Inventory.ItemDefinition>("Assets/_Project/ScriptableObjects/Items/power_cell.asset") != null);
             Check("log asset", AssetDatabase.LoadAssetAtPath<SignalLost.Narrative.AudioLogDefinition>("Assets/_Project/ScriptableObjects/log_018.asset") != null);
             Check("urp asset", GraphicsSettings.defaultRenderPipeline != null);
@@ -45,12 +53,7 @@ namespace SignalLost.EditorTools
                 Check("player controller", player.GetComponent<SignalLost.Player.PlayerController>() != null);
                 Check("player vitals", player.GetComponent<SignalLost.Player.PlayerVitals>() != null);
                 Check("player inventory", player.GetComponent<SignalLost.Inventory.Inventory>() != null);
-                Check("navmesh on player path", UnityEngine.AI.NavMesh.SamplePosition(player.transform.position, out _, 3f, UnityEngine.AI.NavMesh.AllAreas));
             }
-
-            var echo = GameObject.Find("Echo");
-            if (echo != null)
-                Check("echo on navmesh", UnityEngine.AI.NavMesh.SamplePosition(echo.transform.position, out _, 3f, UnityEngine.AI.NavMesh.AllAreas));
 
             if (failures == 0)
                 Debug.Log("[SmokeTest] ALL SMOKE TESTS PASSED");

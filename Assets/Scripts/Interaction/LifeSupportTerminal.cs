@@ -3,13 +3,13 @@ using SignalLost.Core;
 using SignalLost.Inventory;
 using SignalLost.Narrative;
 using UnityEngine;
+using Inventory = SignalLost.Inventory.Inventory;
 
 namespace SignalLost.Interaction
 {
     public class LifeSupportTerminal : MonoBehaviour, IInteractable
     {
         [Header("Puzzle stages")]
-        [SerializeField] private string cellPickupId = "pickup_power_cell";
         [SerializeField] private string powerCellItemId = "power_cell";
         [SerializeField] private ItemDefinition powerCellItem;
         [SerializeField] private PowerCellSlot slot;
@@ -42,7 +42,7 @@ namespace SignalLost.Interaction
 
             if (!CellInserted)
             {
-                var inv = interactor.GetComponent<Inventory>();
+                var inv = interactor.GetComponent<SignalLost.Inventory.Inventory>();
                 if (inv == null) return;
 
                 ItemDefinition cell = null;

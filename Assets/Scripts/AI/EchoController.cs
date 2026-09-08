@@ -85,7 +85,7 @@ namespace SignalLost.AI
             {
                 case EnemyState.Idle:
                     if (_playerVisible) return EnemyState.Chase;
-                    if (_patrolPoints != null && _patrolPoints.Length > 0) return EnemyState.Patrol;
+                    if (patrolPoints != null && patrolPoints.Length > 0) return EnemyState.Patrol;
                     break;
 
                 case EnemyState.Patrol:

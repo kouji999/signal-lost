@@ -21,7 +21,6 @@ namespace SignalLost.UI
         [Header("Subtitles")]
         [SerializeField] private Text speakerText;
         [SerializeField] private Text subtitleText;
-        [SerializeField] private float subtitleFade = 0.5f;
 
         private Player.PlayerVitals _vitals;
         private Coroutine _subtitleRoutine;

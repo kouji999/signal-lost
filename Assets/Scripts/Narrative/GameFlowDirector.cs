@@ -39,7 +39,7 @@ namespace SignalLost.Narrative
             if (introScreen != null) yield return introScreen.Play();
             GameManager.Instance.SetState(GameState.Playing);
 
-            var aria = FindFirstObjectByType<AriaController>();
+            var aria = FindAnyObjectByType<AriaController>();
             if (aria != null) aria.PlayOpeningSequence();
 
             ObjectiveSystem.Instance.AddObjective("obj_life_support", "Restore Life Support",

@@ -20,7 +20,7 @@ namespace SignalLost.Tests
     {
         private GameObject _player;
         private PlayerVitals _vitals;
-        private Inventory _inventory;
+        private SignalLost.Inventory.Inventory _inventory;
 
         private static IEnumerator EnsureScene()
         {
@@ -60,7 +60,7 @@ namespace SignalLost.Tests
         {
             yield return null;
             _player = GameObject.FindGameObjectWithTag("Player");
-            _inventory = _player.GetComponent<Inventory>();
+            _inventory = _player.GetComponent<SignalLost.Inventory.Inventory>();
             var pickup = GameObject.Find("Pickup_PowerCell").GetComponent<PickupItem>();
             pickup.ForceCollect();
             pickup.gameObject.SetActive(false);
@@ -76,7 +76,7 @@ namespace SignalLost.Tests
         {
             yield return null;
             _player = GameObject.FindGameObjectWithTag("Player");
-            _inventory = _player.GetComponent<Inventory>();
+            _inventory = _player.GetComponent<SignalLost.Inventory.Inventory>();
             GameManager.Instance.SetState(GameState.Playing);
 
             var terminal = Object.FindFirstObjectByType<LifeSupportTerminal>();
@@ -114,7 +114,7 @@ namespace SignalLost.Tests
         {
             yield return null;
             _player = GameObject.FindGameObjectWithTag("Player");
-            _inventory = _player.GetComponent<Inventory>();
+            _inventory = _player.GetComponent<SignalLost.Inventory.Inventory>();
             Assert.That(_inventory.HighestAccessLevel(), Is.EqualTo(0));
             _inventory.Add(ItemDatabase.Instance.Resolve("keycard_l1"));
             Assert.That(_inventory.HighestAccessLevel(), Is.EqualTo(1));

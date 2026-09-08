@@ -18,7 +18,7 @@ namespace SignalLost.Interaction
             if (onlyOnce && _played) return;
             _played = true;
             if (Narrative.LogLibrary.Instance != null) Narrative.LogLibrary.Instance.Discover(log.logId);
-            StoryFlagSystem.Set(StoryFlagKeys.FoundFirstLog);
+            StoryFlagSystem.Set(SignalLost.Narrative.StoryFlagKeys.FoundFirstLog);
             EventBus.Publish(new SubtitleEvent("LOG " + log.logId, log.content, Mathf.Max(6f, log.content.Length * 0.055f)));
         }
     }

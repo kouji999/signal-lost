@@ -10,13 +10,13 @@ namespace SignalLost.Core
         public static void Subscribe<T>(Action<T> handler)
         {
             Handlers.TryGetValue(typeof(T), out var existing);
-            Handlers[typeof(T)] = existing + handler;
+            Handlers[typeof(T)] = (Action<T>)existing + handler;
         }
 
         public static void Unsubscribe<T>(Action<T> handler)
         {
             if (!Handlers.TryGetValue(typeof(T), out var existing)) return;
-            var next = existing - handler;
+            var next = (Action<T>)existing - handler;
             if (next == null) Handlers.Remove(typeof(T));
             else Handlers[typeof(T)] = next;
         }

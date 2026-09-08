@@ -10,7 +10,7 @@ namespace SignalLost.Save
     {
         public static SaveManager Instance { get; private set; }
 
-        private static readonly string SaveFilePath =
+        private static string SaveFilePath =>
             System.IO.Path.Combine(Application.persistentDataPath, "signal_lost_save.json");
 
         private void Awake()
@@ -69,13 +69,13 @@ namespace SignalLost.Save
             if (LogLibrary.Instance != null)
                 data.DiscoveredLogs = new List<string>(LogLibrary.Instance.Discovered);
 
-            foreach (var p in FindObjectsByType<PickupItem>(FindObjectsSortMode.None))
+            foreach (var p in FindObjectsByType<PickupItem>())
                 if (p.Collected) data.CollectedPickups.Add(p.PickupId);
 
             foreach (var d in DoorRegistry.All)
                 data.Doors.Add(new DoorSave { DoorId = d.DoorId, Open = d.IsOpen });
 
-            var terminal = FindFirstObjectByType<LifeSupportTerminal>();
+            var terminal = FindAnyObjectByType<LifeSupportTerminal>();
             if (terminal != null) data.LifeSupportOnline = terminal.LifeSupportOnline;
 
             System.IO.File.WriteAllText(SaveFilePath, JsonUtility.ToJson(data, true));
@@ -123,7 +123,7 @@ namespace SignalLost.Save
                 if (flash != null) flash.SetOn(data.FlashlightOn);
             }
 
-            foreach (var p in FindObjectsByType<PickupItem>(FindObjectsSortMode.None))
+            foreach (var p in FindObjectsByType<PickupItem>())
                 if (data.CollectedPickups.Contains(p.PickupId)) p.ForceCollect();
 
             foreach (var d in data.Doors)
@@ -132,7 +132,7 @@ namespace SignalLost.Save
                 if (door != null) door.SetOpen(d.Open);
             }
 
-            var terminal = FindFirstObjectByType<LifeSupportTerminal>();
+            var terminal = FindAnyObjectByType<LifeSupportTerminal>();
             if (terminal != null && data.LifeSupportOnline) terminal.RestoreOnline();
 
             EventBus.Publish(new SubtitleEvent("SYSTEM", "PROGRESS RESTORED", 2f));

@@ -6,6 +6,7 @@ using UnityEditor.SceneManagement;
 using UnityEditor.AI;
 using UnityEngine;
 using UnityEngine.AI;
+using Unity.AI.Navigation;
 using UnityEngine.EventSystems;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -48,9 +49,6 @@ namespace SignalLost.EditorTools
 
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-            GraphicsSettings.defaultRenderPipeline = pipelineAsset;
-            QualitySettings.renderPipeline = pipelineAsset;
-
             RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.03f, 0.035f, 0.05f);
             RenderSettings.fog = true;
@@ -70,8 +68,25 @@ namespace SignalLost.EditorTools
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene(), ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
             AssetDatabase.SaveAssets();
+            PersistPipelineToGraphicsSettings(pipelineAsset);
 
             Debug.Log("[SceneBuilder] BUILD_OK");
+        }
+
+        static void PersistPipelineToGraphicsSettings(UniversalRenderPipelineAsset pipeline)
+        {
+            var gsPath = "ProjectSettings/GraphicsSettings.asset";
+            var lines = File.ReadAllLines(gsPath);
+            var guid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(pipeline));
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (lines[i].Contains("m_CustomRenderPipeline:"))
+                {
+                    lines[i] = $"  m_CustomRenderPipeline: {{fileID: 11400000, guid: {guid}, type: 2}}";
+                    break;
+                }
+            }
+            File.WriteAllLines(gsPath, lines);
         }
 
         static void EnsureLayersAndTags()
@@ -278,12 +293,12 @@ namespace SignalLost.EditorTools
             var body = Cube($"{name}_Body", pos, new Vector3(1.1f, 1.2f, 0.6f), mats["terminal"], LInteractable);
             body.transform.SetParent(root.transform);
             body.transform.localPosition = Vector3.zero;
-            Object.DestroyImmediate(body.GetComponent<BoxCollider>());
+            UnityEngine.Object.DestroyImmediate(body.GetComponent<BoxCollider>());
 
             var screen = Cube($"{name}_Screen", pos, new Vector3(0.8f, 0.5f, 0.08f), mats["screenRed"], LInteractable);
             screen.transform.SetParent(root.transform);
             screen.transform.localPosition = new Vector3(0, 0.55f, -0.28f);
-            Object.DestroyImmediate(screen.GetComponent<BoxCollider>());
+            UnityEngine.Object.DestroyImmediate(screen.GetComponent<BoxCollider>());
 
             var col = root.AddComponent<BoxCollider>();
             col.size = new Vector3(1.2f, 2.4f, 0.7f);
@@ -439,9 +454,9 @@ namespace SignalLost.EditorTools
         static void RemoveWall(string wallName, Transform parent)
         {
             var found = parent.Find(wallName);
-            if (found != null) Object.DestroyImmediate(found.gameObject);
+            if (found != null) UnityEngine.Object.DestroyImmediate(found.gameObject);
             var alt = GameObject.Find(wallName);
-            if (alt != null) Object.DestroyImmediate(alt);
+            if (alt != null) UnityEngine.Object.DestroyImmediate(alt);
         }
 
         static void BuildPickup(string name, Vector3 pos, Vector3 scale, Material mat, Transform parent, string id)
@@ -500,7 +515,7 @@ namespace SignalLost.EditorTools
             go.AddComponent<PlayerLook>();
             go.AddComponent<PlayerVitals>();
             go.AddComponent<NoiseSource>();
-            go.AddComponent<Inventory>();
+            go.AddComponent<SignalLost.Inventory.Inventory>();
             var interactor = camGo.AddComponent<PlayerInteractor>();
 
             SetPrivateField(go.GetComponent<PlayerController>(), "noiseSource", go.GetComponent<NoiseSource>());
@@ -550,12 +565,12 @@ namespace SignalLost.EditorTools
             var body = Cube("Echo_Body", go.transform.position, new Vector3(0.55f, 1.7f, 0.4f), GetMat("echo_body"), LEnemy);
             body.transform.SetParent(go.transform);
             body.transform.localPosition = new Vector3(0, 0.85f, 0);
-            Object.DestroyImmediate(body.GetComponent<BoxCollider>());
+            UnityEngine.Object.DestroyImmediate(body.GetComponent<BoxCollider>());
 
             var head = Cube("Echo_Head", go.transform.position, new Vector3(0.32f, 0.35f, 0.32f), GetMat("echo_body"), LEnemy);
             head.transform.SetParent(go.transform);
             head.transform.localPosition = new Vector3(0, 1.85f, 0);
-            Object.DestroyImmediate(head.GetComponent<BoxCollider>());
+            UnityEngine.Object.DestroyImmediate(head.GetComponent<BoxCollider>());
 
             var cap = go.AddComponent<CapsuleCollider>();
             cap.height = 2f;
@@ -711,7 +726,7 @@ namespace SignalLost.EditorTools
 
         static DoorController FindDoor(string id)
         {
-            var doors = FindObjectsByType<DoorController>(FindObjectsSortMode.None);
+            var doors = UnityEngine.Object.FindObjectsByType<DoorController>();
             foreach (var d in doors)
                 if (d.DoorId == id) return d;
             return null;
@@ -734,7 +749,7 @@ namespace SignalLost.EditorTools
         static void RaiseDoorPanels()
         {
             RaisedPanels.Clear();
-            foreach (var d in FindObjectsByType<DoorController>(FindObjectsSortMode.None))
+            foreach (var d in UnityEngine.Object.FindObjectsByType<DoorController>())
             {
                 var panel = d.GetComponentInChildren<MeshRenderer>(true);
                 if (panel == null) continue;

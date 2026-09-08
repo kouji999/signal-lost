@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a9028e2f31cae6143904b2175ca2975d, type: 3}
+  m_Name: power_cell
+  m_EditorClassIdentifier: SignalLost::SignalLost.Inventory.ItemDefinition
+  itemId: power_cell
+  displayName: Power Cell
+  description: A compact fusion cell. Still warm.
+  kind: 2
+  uiColor: {r: 0.2, g: 0.9, b: 0.6, a: 1}
+  healAmount: 0
+  oxygenAmount: 0
+  batteryCharge: 0
+  accessLevel: 0
+  stackable: 1
+  maxStack: 3

@@ -11,7 +11,6 @@ namespace SignalLost.Audio
         private AudioSource _hum;
         private AudioSource _vent;
         private AudioSource _creak;
-        private bool _lifeSupport;
 
         private void Awake()
         {
@@ -48,7 +47,6 @@ namespace SignalLost.Audio
 
         private void OnLifeSupport(LifeSupportRestored evt)
         {
-            _lifeSupport = true;
             StartCoroutine(RaiseVent());
         }
 
