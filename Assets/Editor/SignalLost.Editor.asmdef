@@ -1,0 +1,15 @@
+{
+    "name": "SignalLost.Editor",
+    "rootNamespace": "SignalLost.Editor",
+    "references": [
+        "SignalLost",
+        "UnityEngine.UI",
+        "Unity.AI.Navigation",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.Core.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "autoReferenced": true
+}

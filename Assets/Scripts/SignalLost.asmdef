@@ -1,0 +1,11 @@
+{
+    "name": "SignalLost",
+    "rootNamespace": "SignalLost",
+    "references": [
+        "UnityEngine.UI",
+        "Unity.AI.Navigation"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "autoReferenced": true
+}
