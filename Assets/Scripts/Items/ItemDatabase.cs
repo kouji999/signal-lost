@@ -10,10 +10,22 @@ namespace SignalLost.Items
 
         [SerializeField] private List<ItemDefinition> items = new();
 
+        public void Init(IEnumerable<ItemDefinition> defs)
+        {
+            items.Clear();
+            foreach (var d in defs)
+            {
+                if (d != null) items.Add(d);
+            }
+        }
+
         private void Awake()
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+
+            if (items.Count == 0)
+                items.AddRange(Resources.LoadAll<ItemDefinition>("Items"));
         }
 
         public ItemDefinition Resolve(string itemId) => items.Find(i => i != null && i.itemId == itemId);

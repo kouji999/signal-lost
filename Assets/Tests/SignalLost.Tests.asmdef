@@ -6,9 +6,7 @@
         "UnityEditor.TestRunner",
         "SignalLost"
     ],
-    "includePlatforms": [
-        "Editor"
-    ],
+    "includePlatforms": [],
     "precompiledReferences": [
         "nunit.framework.dll"
     ],

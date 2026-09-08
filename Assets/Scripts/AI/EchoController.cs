@@ -126,6 +126,7 @@ namespace SignalLost.AI
         {
             State = next;
             _stateTimer = searchDuration;
+            if (agent == null || !agent.isOnNavMesh) return;
             switch (next)
             {
                 case EnemyState.Patrol:
@@ -149,6 +150,7 @@ namespace SignalLost.AI
 
         private void Act()
         {
+            if (agent == null || !agent.isOnNavMesh) return;
             switch (State)
             {
                 case EnemyState.Chase:

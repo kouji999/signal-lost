@@ -29,6 +29,7 @@ namespace SignalLost.EditorTools
     {
         const string ScenePath = "Assets/_Project/Scenes/Main.unity";
         const string DataPath = "Assets/_Project/ScriptableObjects";
+        const string ItemsPath = "Assets/_Project/Resources/Items";
         const string MatPath = "Assets/_Project/Materials";
         const string UiPath = "Assets/_Project/UI";
 
@@ -105,7 +106,7 @@ namespace SignalLost.EditorTools
 
         static void EnsureFolders()
         {
-            foreach (var d in new[] { "Assets/_Project", "Assets/_Project/Scenes", "Assets/_Project/ScriptableObjects", "Assets/_Project/ScriptableObjects/Items", "Assets/_Project/Materials", "Assets/_Project/UI", "Assets/_Project/Settings" })
+            foreach (var d in new[] { "Assets/_Project", "Assets/_Project/Scenes", "Assets/_Project/ScriptableObjects", "Assets/_Project/Resources/Items", "Assets/_Project/Resources/Logs", "Assets/_Project/Materials", "Assets/_Project/UI", "Assets/_Project/Settings" })
                 Directory.CreateDirectory(d);
             AssetDatabase.Refresh();
         }
@@ -134,7 +135,7 @@ namespace SignalLost.EditorTools
         static ItemDefinition Item(string id, string name, string desc, ItemKind kind, Color color,
             float heal = 0f, float battery = 0f, int access = 0)
         {
-            var path = $"{DataPath}/Items/{id}.asset";
+            var path = $"{ItemsPath}/{id}.asset";
             var existing = AssetDatabase.LoadAssetAtPath<ItemDefinition>(path);
             if (existing != null) return existing;
 
@@ -560,7 +561,7 @@ namespace SignalLost.EditorTools
         {
             var go = new GameObject("Echo");
             go.layer = LEnemy;
-            go.transform.position = new Vector3(0, 0f, 31f);
+            go.transform.position = new Vector3(0, 0f, 23.5f);
 
             var body = Cube("Echo_Body", go.transform.position, new Vector3(0.55f, 1.7f, 0.4f), GetMat("echo_body"), LEnemy);
             body.transform.SetParent(go.transform);
@@ -598,9 +599,9 @@ namespace SignalLost.EditorTools
 
             var wps = new[]
             {
-                new Vector3(0, 0, 29f),
-                new Vector3(0, 0, 35f),
-                new Vector3(0, 0, 29f),
+                new Vector3(-2.5f, 0, 21f),
+                new Vector3(2.5f, 0, 24f),
+                new Vector3(-2.5f, 0, 21f),
             };
             var wpObjects = new GameObject[wps.Length];
             var wpParent = new GameObject("EchoWaypoints");
@@ -635,13 +636,8 @@ namespace SignalLost.EditorTools
             root.AddComponent<AudioRig>();
 
             var db = root.AddComponent<ItemDatabase>();
-            var soDb = new SerializedObject(db);
-            var list = soDb.FindProperty("items");
-            list.arraySize = items.Count;
-            int i = 0;
-            foreach (var kv in items)
-                list.GetArrayElementAtIndex(i++).objectReferenceValue = kv.Value;
-            soDb.ApplyModifiedPropertiesWithoutUndo();
+            db.Init(items.Values);
+            EditorUtility.SetDirty(db);
 
             var aria = new GameObject("Aria");
             aria.transform.SetParent(root.transform);
@@ -665,7 +661,7 @@ namespace SignalLost.EditorTools
             so.FindProperty("slot").objectReferenceValue = lsTerminal.GetComponent<PowerCellSlot>();
             so.FindProperty("statusLight").objectReferenceValue = lsTerminal.GetComponentInChildren<Light>();
             so.FindProperty("powerCellItemId").stringValue = "power_cell";
-            so.FindProperty("powerCellItem").objectReferenceValue = AssetDatabase.LoadAssetAtPath<ItemDefinition>($"{DataPath}/Items/power_cell.asset");
+            so.FindProperty("powerCellItem").objectReferenceValue = AssetDatabase.LoadAssetAtPath<ItemDefinition>($"{ItemsPath}/power_cell.asset");
             so.ApplyModifiedPropertiesWithoutUndo();
 
             var cellVisual = lsTerminal.transform.Find("CellVisual");
@@ -719,7 +715,7 @@ namespace SignalLost.EditorTools
             var go = GameObject.Find(goName);
             var p = go.GetComponent<PickupItem>();
             var so = new SerializedObject(p);
-            so.FindProperty("item").objectReferenceValue = AssetDatabase.LoadAssetAtPath<ItemDefinition>($"{DataPath}/Items/{itemId}.asset");
+            so.FindProperty("item").objectReferenceValue = AssetDatabase.LoadAssetAtPath<ItemDefinition>($"{ItemsPath}/{itemId}.asset");
             so.FindProperty("pickupId").stringValue = id;
             so.ApplyModifiedPropertiesWithoutUndo();
         }
