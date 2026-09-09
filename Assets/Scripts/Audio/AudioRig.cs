@@ -82,9 +82,10 @@ namespace SignalLost.Audio
             for (int i = 0; i < len; i++)
             {
                 float t = (float)i / sr;
-                data[i] = 0.35f * Mathf.Sin(2f * Mathf.PI * 52f * t)
-                        + 0.15f * Mathf.Sin(2f * Mathf.PI * 104f * t)
-                        + 0.05f * (Random.value * 2f - 1f);
+                float mod = 0.85f + 0.15f * Mathf.Sin(2f * Mathf.PI * 0.23f * t);
+                data[i] = mod * (0.32f * Mathf.Sin(2f * Mathf.PI * 52f * t)
+                               + 0.14f * Mathf.Sin(2f * Mathf.PI * 104f * t)
+                               + 0.06f * Mathf.Sin(2f * Mathf.PI * 156f * t));
             }
             LoopSmooth(data, sr);
             var clip = AudioClip.Create("hum", len, 1, sr, false);

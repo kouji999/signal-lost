@@ -8,7 +8,7 @@ namespace SignalLost.Player
         [SerializeField] private float maxHealth = 100f;
         [SerializeField] private float maxOxygen = 100f;
         [SerializeField] private float maxBattery = 100f;
-        [SerializeField] private float oxygenDrainPerSecond = 0.07f;
+        [SerializeField] private float oxygenDrainPerSecond = 0.05f;
         [SerializeField] private float suffocationDamagePerSecond = 6f;
 
         public float Health { get; private set; }

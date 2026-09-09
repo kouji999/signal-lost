@@ -43,14 +43,14 @@ namespace SignalLost.Narrative
             if (aria != null) aria.PlayOpeningSequence();
 
             ObjectiveSystem.Instance.AddObjective("obj_life_support", "Restore Life Support",
-                "Find a power cell and restart the life support system.");
+                "Find a POWER CELL in the STORAGE BAY (east), then restart the system at the console in this deck.");
         }
 
         private void OnLifeSupportRestored(LifeSupportRestored evt)
         {
             ObjectiveSystem.Instance.CompleteObjective("obj_life_support");
             ObjectiveSystem.Instance.AddObjective("obj_communication", "Restore Communication",
-                "Reach the communication deck and repair the array.");
+                "Find the CREW KEYCARD in the MEDBAY (west), then repair the array on the COMMUNICATION DECK (north).");
         }
 
         private void OnSliceComplete(SliceCompleteEvent evt)

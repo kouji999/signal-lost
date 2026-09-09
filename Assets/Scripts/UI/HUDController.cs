@@ -73,10 +73,12 @@ namespace SignalLost.UI
         {
             if (objectiveText == null || ObjectiveSystem.Instance == null) return;
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine("OBJECTIVE");
+            sb.AppendLine("<b>OBJECTIVE</b>");
             foreach (var obj in ObjectiveSystem.Instance.ActiveObjectives)
             {
-                sb.AppendLine(obj.Completed ? $"<s>{obj.Title}</s>" : obj.Title);
+                if (obj.Completed) continue;
+                sb.AppendLine($"<b>{obj.Title}</b>");
+                sb.AppendLine($"<size=11><color=#9aa0a8>{obj.Description}</color></size>");
             }
             objectiveText.text = sb.ToString();
         }

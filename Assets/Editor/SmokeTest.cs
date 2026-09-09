@@ -34,9 +34,12 @@ namespace SignalLost.EditorTools
             Check("log terminal", GameObject.Find("LogTerminal018") != null);
             Check("door_pod", GameObject.Find("door_pod") != null);
             Check("door_hub", GameObject.Find("door_hub") != null);
-            Check("door_ls", GameObject.Find("door_ls") != null);
-            Check("door_anomaly", GameObject.Find("door_anomaly") != null);
+            Check("door_medbay", GameObject.Find("door_medbay") != null);
+            Check("door_storage", GameObject.Find("door_storage") != null);
             Check("door_comm", GameObject.Find("door_comm") != null);
+            Check("medbay room", GameObject.Find("Medbay") != null);
+            Check("storage room", GameObject.Find("Storage") != null);
+            Check("comm room", GameObject.Find("CommRoom") != null);
             Check("power cell pickup", GameObject.Find("Pickup_PowerCell") != null);
             Check("keycard pickup", GameObject.Find("Pickup_Keycard") != null);
             Check("hud canvas", GameObject.Find("HUD_Canvas") != null);

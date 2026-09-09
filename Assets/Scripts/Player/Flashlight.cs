@@ -7,7 +7,7 @@ namespace SignalLost.Player
     {
         [SerializeField] private Light spotLight;
         [SerializeField] private PlayerVitals vitals;
-        [SerializeField] private float drainPerSecond = 0.35f;
+        [SerializeField] private float drainPerSecond = 0.12f;
         [SerializeField] private float flickerThreshold = 15f;
 
         public bool IsOn { get; private set; } = true;

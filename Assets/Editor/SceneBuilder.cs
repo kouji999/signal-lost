@@ -44,6 +44,7 @@ namespace SignalLost.EditorTools
             EnsureLayersAndTags();
             EnsureFolders();
             var pipelineAsset = EnsureUrpPipeline();
+            FixUrpRenderer();
             var items = CreateItemAssets();
             var log = CreateLogAsset();
             var mats = CreateMaterials();
@@ -51,10 +52,10 @@ namespace SignalLost.EditorTools
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.03f, 0.035f, 0.05f);
+            RenderSettings.ambientLight = new Color(0.055f, 0.06f, 0.08f);
             RenderSettings.fog = true;
             RenderSettings.fogColor = new Color(0.01f, 0.012f, 0.018f);
-            RenderSettings.fogDensity = 0.045f;
+            RenderSettings.fogDensity = 0.028f;
 
             var level = BuildLevel(mats);
             var player = BuildPlayer();
@@ -114,12 +115,66 @@ namespace SignalLost.EditorTools
         static UniversalRenderPipelineAsset EnsureUrpPipeline()
         {
             var path = "Assets/_Project/Settings/URP.asset";
+            var rendererPath = "Assets/_Project/Settings/URP_Renderer.asset";
             var existing = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(path);
             if (existing != null) return existing;
 
+            var renderer = AssetDatabase.LoadAssetAtPath<UniversalRendererData>(rendererPath);
+            if (renderer == null)
+            {
+                renderer = ScriptableObject.CreateInstance<UniversalRendererData>();
+                AssetDatabase.CreateAsset(renderer, rendererPath);
+            }
+
             var instance = UniversalRenderPipelineAsset.Create();
+            var so = new SerializedObject(instance);
+            var listProp = so.FindProperty("m_RendererDataList");
+            listProp.arraySize = 1;
+            listProp.GetArrayElementAtIndex(0).objectReferenceValue = renderer;
+            so.FindProperty("m_DefaultRendererIndex").intValue = 0;
+            so.ApplyModifiedPropertiesWithoutUndo();
             AssetDatabase.CreateAsset(instance, path);
             return instance;
+        }
+
+        public static void FixUrpRenderer()
+        {
+            var path = "Assets/_Project/Settings/URP.asset";
+            var rendererPath = "Assets/_Project/Settings/URP_Renderer.asset";
+            var pipeline = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(path);
+            if (pipeline == null)
+            {
+                Debug.LogError("[FixUrp] URP.asset not found");
+                return;
+            }
+
+            var renderer = AssetDatabase.LoadAssetAtPath<UniversalRendererData>(rendererPath);
+            if (renderer == null)
+            {
+                renderer = ScriptableObject.CreateInstance<UniversalRendererData>();
+                AssetDatabase.CreateAsset(renderer, rendererPath);
+            }
+
+            var so = new SerializedObject(pipeline);
+            var listProp = so.FindProperty("m_RendererDataList");
+            listProp.arraySize = 1;
+            listProp.GetArrayElementAtIndex(0).objectReferenceValue = renderer;
+            so.FindProperty("m_DefaultRendererIndex").intValue = 0;
+            SetIfPresent(so, "m_AdditionalLightsRenderingMode", 1);
+            SetIfPresent(so, "m_MainLightRenderingMode", 1);
+            SetIfPresent(so, "m_ShadowDistance", 40f);
+            so.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(pipeline);
+            AssetDatabase.SaveAssets();
+            Debug.Log("[FixUrp] Renderer assigned OK");
+        }
+
+        static void SetIfPresent(SerializedObject so, string prop, float value)
+        {
+            var p = so.FindProperty(prop);
+            if (p == null) { Debug.LogWarning($"[FixUrp] prop {prop} not found"); return; }
+            if (p.propertyType == SerializedPropertyType.Integer) p.intValue = (int)value;
+            else if (p.propertyType == SerializedPropertyType.Float) p.floatValue = value;
         }
 
         static Dictionary<string, ItemDefinition> CreateItemAssets()
@@ -202,9 +257,9 @@ namespace SignalLost.EditorTools
             dict["pod"] = Make("pod_shell", new Color(0.22f, 0.24f, 0.27f), 0.6f, 0.7f);
             dict["door"] = Make("door_metal", new Color(0.25f, 0.26f, 0.28f), 0.55f, 0.8f);
             dict["terminal"] = Make("terminal_body", new Color(0.12f, 0.13f, 0.15f), 0.4f, 0.5f);
-            dict["screenRed"] = Make("screen_red", new Color(0.1f, 0.02f, 0.02f), 0.8f, 0f, new Color(0.9f, 0.05f, 0.05f));
-            dict["screenGreen"] = Make("screen_green", new Color(0.02f, 0.1f, 0.04f), 0.8f, 0f, new Color(0.05f, 0.9f, 0.2f));
-            dict["screenAmber"] = Make("screen_amber", new Color(0.1f, 0.06f, 0.01f), 0.8f, 0f, new Color(1f, 0.55f, 0.05f));
+            dict["screenRed"] = Make("screen_red", new Color(0.1f, 0.02f, 0.02f), 0.8f, 0f, new Color(2.6f, 0.12f, 0.1f));
+            dict["screenGreen"] = Make("screen_green", new Color(0.02f, 0.1f, 0.04f), 0.8f, 0f, new Color(0.1f, 2.6f, 0.5f));
+            dict["screenAmber"] = Make("screen_amber", new Color(0.1f, 0.06f, 0.01f), 0.8f, 0f, new Color(2.8f, 1.4f, 0.1f));
             dict["crate"] = Make("crate", new Color(0.18f, 0.16f, 0.13f), 0.25f, 0.1f);
             dict["pickup"] = Make("pickup_glow", new Color(0.2f, 0.9f, 0.6f), 0.9f, 0f, new Color(0.1f, 0.8f, 0.5f));
             dict["echo"] = Make("echo_body", new Color(0.05f, 0.05f, 0.06f), 0.1f, 0f);
@@ -222,66 +277,155 @@ namespace SignalLost.EditorTools
             return go;
         }
 
-        static void Room(string name, Vector3 center, Vector3 size, Dictionary<string, Material> mats, Transform parent)
+        const float FloorTop = 0.1f;
+
+        static void RoomSealed(string name, Vector3 center, Vector3 size, Dictionary<string, Material> mats,
+            Transform parent, bool openS = false, bool openN = false, bool openE = false, bool openW = false)
         {
             var r = new GameObject(name);
             r.transform.SetParent(parent);
             r.transform.position = center;
 
             float w = size.x, h = size.y, d = size.z;
-            Cube($"{name}_Floor", new Vector3(0, -h / 2f, 0), new Vector3(w, 0.2f, d), mats["floor"], LWorld).transform.SetParent(r.transform, true);
-            Cube($"{name}_Ceiling", new Vector3(0, h / 2f, 0), new Vector3(w, 0.2f, d), mats["ceiling"], LWorld).transform.SetParent(r.transform, true);
-            Cube($"{name}_WallL", new Vector3(-w / 2f, 0, 0), new Vector3(0.2f, h, d), mats["wall"], LWorld).transform.SetParent(r.transform, true);
-            Cube($"{name}_WallR", new Vector3(w / 2f, 0, 0), new Vector3(0.2f, h, d), mats["wall"], LWorld).transform.SetParent(r.transform, true);
-            Cube($"{name}_WallS", new Vector3(0, 0, -d / 2f), new Vector3(w, h, 0.2f), mats["wall"], LWorld).transform.SetParent(r.transform, true);
-            Cube($"{name}_WallN", new Vector3(0, 0, d / 2f), new Vector3(w, h, 0.2f), mats["wall"], LWorld).transform.SetParent(r.transform, true);
+            float wallCY = FloorTop + h / 2f;
+
+            Cube($"{name}_Floor", new Vector3(center.x, 0f, center.z), new Vector3(w + 0.4f, 0.2f, d + 0.4f), mats["floor"], LWorld).transform.SetParent(r.transform, true);
+            Cube($"{name}_Ceiling", new Vector3(center.x, h + FloorTop, center.z), new Vector3(w + 0.4f, 0.2f, d + 0.4f), mats["ceiling"], LWorld).transform.SetParent(r.transform, true);
+
+            if (openW) GapWall(r.transform, mats, $"{name}_W", new Vector3(center.x - w / 2f, wallCY, center.z), d, h, 'x');
+            else Cube($"{name}_WallW", new Vector3(center.x - w / 2f, wallCY, center.z), new Vector3(0.2f, h, d), mats["wall"], LWorld).transform.SetParent(r.transform, true);
+
+            if (openE) GapWall(r.transform, mats, $"{name}_E", new Vector3(center.x + w / 2f, wallCY, center.z), d, h, 'x');
+            else Cube($"{name}_WallE", new Vector3(center.x + w / 2f, wallCY, center.z), new Vector3(0.2f, h, d), mats["wall"], LWorld).transform.SetParent(r.transform, true);
+
+            if (openS) GapWall(r.transform, mats, $"{name}_S", new Vector3(center.x, wallCY, center.z - d / 2f), w, h, 'z');
+            else Cube($"{name}_WallS", new Vector3(center.x, wallCY, center.z - d / 2f), new Vector3(w, h, 0.2f), mats["wall"], LWorld).transform.SetParent(r.transform, true);
+
+            if (openN) GapWall(r.transform, mats, $"{name}_N", new Vector3(center.x, wallCY, center.z + d / 2f), w, h, 'z');
+            else Cube($"{name}_WallN", new Vector3(center.x, wallCY, center.z + d / 2f), new Vector3(w, h, 0.2f), mats["wall"], LWorld).transform.SetParent(r.transform, true);
         }
 
-        static void WallWithDoorGap(Dictionary<string, Material> mats, Transform parent, string name, Vector3 center, Vector3 size, char axis, float gapW)
+        static void Corridor(string name, Vector3 center, Vector3 size, Dictionary<string, Material> mats, Transform parent, bool axisZ)
         {
-            float halfW = size.x >= size.z ? size.x / 2f : size.z / 2f;
-            var sideSize = (Mathf.Max(size.x, size.z) - gapW) / 2f;
+            var r = new GameObject(name);
+            r.transform.SetParent(parent);
+            r.transform.position = center;
 
-            if (axis == 'z')
+            float w = size.x, h = size.y, d = size.z;
+            float wallCY = FloorTop + h / 2f;
+
+            Cube($"{name}_Floor", new Vector3(center.x, 0f, center.z), new Vector3(w + 0.4f, 0.2f, d + 0.4f), mats["floor"], LWorld).transform.SetParent(r.transform, true);
+            Cube($"{name}_Ceiling", new Vector3(center.x, h + FloorTop, center.z), new Vector3(w + 0.4f, 0.2f, d + 0.4f), mats["ceiling"], LWorld).transform.SetParent(r.transform, true);
+
+            if (axisZ)
             {
-                Cube($"{name}_A", new Vector3(center.x - (gapW + sideSize) / 2f, center.y, center.z), new Vector3(sideSize, size.y, 0.2f), mats["wall"], LWorld).transform.SetParent(parent, true);
-                Cube($"{name}_B", new Vector3(center.x + (gapW + sideSize) / 2f, center.y, center.z), new Vector3(sideSize, size.y, 0.2f), mats["wall"], LWorld).transform.SetParent(parent, true);
-                float topH = size.y - 2.95f;
-                float topY = center.y - size.y / 2f + 2.95f + topH / 2f;
-                Cube($"{name}_Top", new Vector3(center.x, topY, center.z), new Vector3(gapW, topH, 0.2f), mats["wall"], LWorld).transform.SetParent(parent, true);
+                Cube($"{name}_WallL", new Vector3(center.x - w / 2f, wallCY, center.z), new Vector3(0.2f, h, d), mats["wall"], LWorld).transform.SetParent(r.transform, true);
+                Cube($"{name}_WallR", new Vector3(center.x + w / 2f, wallCY, center.z), new Vector3(0.2f, h, d), mats["wall"], LWorld).transform.SetParent(r.transform, true);
             }
             else
             {
-                Cube($"{name}_A", new Vector3(center.x, center.y, center.z - (gapW + sideSize) / 2f), new Vector3(0.2f, size.y, sideSize), mats["wall"], LWorld).transform.SetParent(parent, true);
-                Cube($"{name}_B", new Vector3(center.x, center.y, center.z + (gapW + sideSize) / 2f), new Vector3(0.2f, size.y, sideSize), mats["wall"], LWorld).transform.SetParent(parent, true);
-                float topH = size.y - 2.95f;
-                float topY = center.y - size.y / 2f + 2.95f + topH / 2f;
-                Cube($"{name}_Top", new Vector3(center.x, topY, center.z), new Vector3(0.2f, topH, gapW), mats["wall"], LWorld).transform.SetParent(parent, true);
+                Cube($"{name}_WallS", new Vector3(center.x, wallCY, center.z - d / 2f), new Vector3(w, h, 0.2f), mats["wall"], LWorld).transform.SetParent(r.transform, true);
+                Cube($"{name}_WallN", new Vector3(center.x, wallCY, center.z + d / 2f), new Vector3(w, h, 0.2f), mats["wall"], LWorld).transform.SetParent(r.transform, true);
             }
         }
 
-        static GameObject BuildDoor(string id, Vector3 pos, Dictionary<string, Material> mats, Transform parent)
+        static void GapWall(Transform parent, Dictionary<string, Material> mats, string name, Vector3 center,
+            float wallLen, float wallH, char axis)
+        {
+            const float gapW = 3f;
+            float side = (wallLen - gapW) / 2f;
+            float headerH = wallH + FloorTop - 2.95f;
+            float headerCY = 2.95f + headerH / 2f;
+
+            if (axis == 'z')
+            {
+                if (side > 0.01f)
+                {
+                    Cube($"{name}_A", new Vector3(center.x - gapW / 2f - side / 2f, center.y, center.z), new Vector3(side, wallH, 0.2f), mats["wall"], LWorld).transform.SetParent(parent, true);
+                    Cube($"{name}_B", new Vector3(center.x + gapW / 2f + side / 2f, center.y, center.z), new Vector3(side, wallH, 0.2f), mats["wall"], LWorld).transform.SetParent(parent, true);
+                }
+                Cube($"{name}_Header", new Vector3(center.x, headerCY, center.z), new Vector3(gapW, headerH, 0.2f), mats["wall"], LWorld).transform.SetParent(parent, true);
+            }
+            else
+            {
+                if (side > 0.01f)
+                {
+                    Cube($"{name}_A", new Vector3(center.x, center.y, center.z - gapW / 2f - side / 2f), new Vector3(0.2f, wallH, side), mats["wall"], LWorld).transform.SetParent(parent, true);
+                    Cube($"{name}_B", new Vector3(center.x, center.y, center.z + gapW / 2f + side / 2f), new Vector3(0.2f, wallH, side), mats["wall"], LWorld).transform.SetParent(parent, true);
+                }
+                Cube($"{name}_Header", new Vector3(center.x, headerCY, center.z), new Vector3(0.2f, headerH, gapW), mats["wall"], LWorld).transform.SetParent(parent, true);
+            }
+        }
+
+        static GameObject BuildDoor(string id, Vector3 center, char axis, Dictionary<string, Material> mats,
+            Transform parent, Material signMat = null, float wallH = 3.4f)
         {
             var root = new GameObject(id);
-            root.transform.position = pos;
+            root.transform.position = center;
             root.transform.SetParent(parent);
+            root.transform.rotation = axis == 'z' ? Quaternion.identity : Quaternion.Euler(0f, 90f, 0f);
             root.layer = LInteractable;
 
-            var panel = Cube($"{id}_Panel", pos, new Vector3(1.4f, 2.9f, 0.12f), mats["door"], LWorld);
-            panel.transform.SetParent(root.transform);
-            panel.transform.localPosition = Vector3.zero;
+            float panelY = FloorTop + 2.95f / 2f;
+            float panelW = 2.6f, fillerW = 0.2f;
+
+            var panel = Cube($"{id}_Panel", new Vector3(center.x, panelY, center.z), new Vector3(panelW, 2.95f, 0.12f), mats["door"], LWorld);
+            panel.transform.SetParent(root.transform, true);
+
+            float sideOff = (panelW + fillerW) / 2f;
+            Vector3 fl = axis == 'z' ? new Vector3(center.x - sideOff, panelY, center.z) : new Vector3(center.x, panelY, center.z - sideOff);
+            Vector3 fr = axis == 'z' ? new Vector3(center.x + sideOff, panelY, center.z) : new Vector3(center.x, panelY, center.z + sideOff);
+            Vector3 fscale = axis == 'z' ? new Vector3(fillerW, 2.95f, 0.14f) : new Vector3(0.14f, 2.95f, fillerW);
+
+            Cube($"{id}_FillerL", fl, fscale, mats["wall"], LWorld).transform.SetParent(root.transform, true);
+            Cube($"{id}_FillerR", fr, fscale, mats["wall"], LWorld).transform.SetParent(root.transform, true);
+
+            if (signMat != null)
+            {
+                float signY = 2.72f;
+                for (int s = -1; s <= 1; s += 2)
+                {
+                    Vector3 sp = axis == 'z' ? new Vector3(center.x, signY, center.z + s * 0.16f) : new Vector3(center.x + s * 0.16f, signY, center.z);
+                    Vector3 ss = axis == 'z' ? new Vector3(1.6f, 0.3f, 0.05f) : new Vector3(0.05f, 0.3f, 1.6f);
+                    Cube($"{id}_Sign{(s < 0 ? "S" : "N")}", sp, ss, signMat, LWorld).transform.SetParent(root.transform, true);
+                }
+                var sl = new GameObject($"{id}_SignLight");
+                sl.transform.SetParent(root.transform);
+                sl.transform.localPosition = new Vector3(0f, 2.55f, 0f);
+                var l = sl.AddComponent<Light>();
+                l.type = LightType.Point;
+                l.range = 3f;
+                l.intensity = 0.8f;
+                var ec = signMat.GetColor("_EmissionColor");
+                l.color = new Color(Mathf.Clamp01(ec.r), Mathf.Clamp01(ec.g), Mathf.Clamp01(ec.b));
+            }
 
             var trigger = root.AddComponent<BoxCollider>();
             trigger.isTrigger = true;
-            trigger.size = new Vector3(1.5f, 3f, 0.5f);
+            trigger.size = new Vector3(3f, 3f, 0.6f);
+            trigger.center = new Vector3(0f, FloorTop + 1.5f - center.y, 0f);
 
             var door = root.AddComponent<DoorController>();
             var so = new SerializedObject(door);
             so.FindProperty("doorId").stringValue = id;
             so.FindProperty("slidePanel").objectReferenceValue = panel.transform;
-            so.FindProperty("openOffset").floatValue = 3.1f;
+            so.FindProperty("openOffset").floatValue = wallH + 0.6f;
             so.ApplyModifiedPropertiesWithoutUndo();
             return root;
+        }
+
+        static void AddSign(string name, Vector3 center, Vector3 size, string label, Transform parent)
+        {
+            var go = new GameObject(name);
+            go.transform.position = center;
+            go.transform.SetParent(parent);
+            var col = go.AddComponent<BoxCollider>();
+            col.isTrigger = true;
+            col.size = size;
+            var sign = go.AddComponent<SignalLost.World.RoomSign>();
+            var so = new SerializedObject(sign);
+            so.FindProperty("areaName").stringValue = label;
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         static GameObject BuildTerminal(string name, Vector3 pos, Quaternion rot, Dictionary<string, Material> mats)
@@ -311,105 +455,98 @@ namespace SignalLost.EditorTools
         {
             var root = new GameObject("Level");
 
-            // --- Pod room: 4x3x4, gap on +Z ---
-            Room("PodRoom", new Vector3(0, 1.5f, 0), new Vector3(4, 3, 4), mats, root.transform);
-            RemoveWall("PodRoom_WallN", root.transform);
-            WallWithDoorGap(mats, root.transform, "PodRoom_N", new Vector3(0, 1.5f, 2f), new Vector3(4, 3, 1), 'z', 1.4f);
-            BuildDoor("door_pod", new Vector3(0, 1.5f, 2f), mats, root.transform);
+            // ================= SEALED BACKROOMS LAYOUT =================
+            // PodRoom -> CorridorA -> HUB (4-way) -> [Medbay W] [Storage E] [North corridor -> Comm N]
+            RoomSealed("PodRoom", new Vector3(0, 1.4f, -1), new Vector3(6, 3, 6), mats, root.transform, openN: true);
+            BuildDoor("door_pod", new Vector3(0, 0.1f, 2f), 'z', mats, root.transform, mats["screenGreen"], 3.0f);
 
-            // Pod + screen
-            var pod = Cube("EmergencyPod", new Vector3(0, 0.45f, -1.2f), new Vector3(1.1f, 0.5f, 2.2f), mats["pod"], LWorld);
+            var pod = Cube("EmergencyPod", new Vector3(0, 0.45f, -2.6f), new Vector3(1.2f, 0.5f, 2.2f), mats["pod"], LWorld);
             pod.transform.SetParent(root.transform, true);
-            var podScreen = Cube("PodScreen", new Vector3(0, 1.1f, -1.82f), new Vector3(0.8f, 0.4f, 0.05f), mats["screenAmber"], LWorld);
+            var podScreen = Cube("PodScreen", new Vector3(0, 1.2f, -3.7f), new Vector3(0.8f, 0.4f, 0.05f), mats["screenAmber"], LWorld);
             podScreen.transform.SetParent(root.transform, true);
 
-            // --- Corridor A: z 2..16 ---
-            Room("CorridorA", new Vector3(0, 1.5f, 9), new Vector3(3, 3, 14), mats, root.transform);
-            RemoveWall("CorridorA_WallS", root.transform);
-            RemoveWall("CorridorA_WallN", root.transform);
+            Corridor("CorridorA", new Vector3(0, 1.4f, 8.5f), new Vector3(3, 3, 13), mats, root.transform, axisZ: true);
 
-            // --- Habitation hub: 10x3.4x10 at z=22 ---
-            Room("HabitationHub", new Vector3(0, 1.7f, 22), new Vector3(10, 3.4f, 10), mats, root.transform);
-            RemoveWall("HabitationHub_WallS", root.transform);
-            RemoveWall("HabitationHub_WallN", root.transform);
-            RemoveWall("HabitationHub_WallE", root.transform);
-            WallWithDoorGap(mats, root.transform, "Hub_S", new Vector3(0, 1.7f, 17f), new Vector3(10, 3.4f, 1), 'z', 1.4f);
-            WallWithDoorGap(mats, root.transform, "Hub_E", new Vector3(5f, 1.7f, 22f), new Vector3(1, 3.4f, 10), 'x', 1.4f);
-            WallWithDoorGap(mats, root.transform, "Hub_N", new Vector3(0, 1.7f, 27f), new Vector3(10, 3.4f, 1), 'z', 1.4f);
-            BuildDoor("door_hub", new Vector3(0, 1.7f, 17f), mats, root.transform);
-            BuildDoor("door_anomaly", new Vector3(0, 1.7f, 27f), mats, root.transform);
+            RoomSealed("HabitationHub", new Vector3(0, 1.6f, 22), new Vector3(14, 3.4f, 14), mats, root.transform,
+                openS: true, openN: true, openE: true, openW: true);
+            BuildDoor("door_hub", new Vector3(0, 0.1f, 15f), 'z', mats, root.transform, mats["screenGreen"], 3.4f);
+            var doorComm = BuildDoor("door_comm", new Vector3(0, 0.1f, 29f), 'z', mats, root.transform, mats["screenRed"], 3.4f);
+            var soComm = new SerializedObject(doorComm.GetComponent<DoorController>());
+            soComm.FindProperty("accessLevel").intValue = 1;
+            soComm.ApplyModifiedPropertiesWithoutUndo();
+            BuildDoor("door_medbay", new Vector3(-7.5f, 0.1f, 22f), 'x', mats, root.transform, mats["screenGreen"], 3.2f);
+            BuildDoor("door_storage", new Vector3(7.5f, 0.1f, 22f), 'x', mats, root.transform, mats["screenAmber"], 3.2f);
 
-            // Crates + dressing in hub
-            for (int i = 0; i < 4; i++)
-            {
-                var crate = Cube($"Crate_{i}", new Vector3(i % 2 == 0 ? -4.3f : 4.3f, 0.5f, 20.5f + i * 1.3f), new Vector3(0.9f, 1f, 0.9f), mats["crate"], LWorld);
-                crate.transform.SetParent(root.transform, true);
-            }
+            Corridor("MedConnect", new Vector3(-7.5f, 1.5f, 22), new Vector3(1, 3.2f, 3), mats, root.transform, axisZ: false);
+            RoomSealed("Medbay", new Vector3(-12, 1.5f, 22), new Vector3(8, 3.2f, 10), mats, root.transform, openE: true);
+            Corridor("StorageConnect", new Vector3(7.5f, 1.5f, 22), new Vector3(1, 3.2f, 3), mats, root.transform, axisZ: false);
+            RoomSealed("Storage", new Vector3(12, 1.5f, 22), new Vector3(8, 3.2f, 10), mats, root.transform, openW: true);
 
-            // --- Corridor B (east): x 5..17 at z=22 ---
-            Room("CorridorB", new Vector3(11, 1.7f, 22), new Vector3(12, 3.4f, 3), mats, root.transform);
-            RemoveWall("CorridorB_WallW", root.transform);
-            RemoveWall("CorridorB_WallE", root.transform);
-            BuildDoor("door_ls", new Vector3(5f, 1.7f, 22f), mats, root.transform);
+            Corridor("CorridorB", new Vector3(0, 1.4f, 33.5f), new Vector3(3, 3, 9), mats, root.transform, axisZ: true);
+            RoomSealed("CommRoom", new Vector3(0, 1.6f, 43), new Vector3(12, 3.4f, 10), mats, root.transform, openS: true);
 
-            // --- Life support room: 6x3.2x6 at (18, z=22) ---
-            Room("LifeSupport", new Vector3(18, 1.6f, 22), new Vector3(6, 3.2f, 6), mats, root.transform);
-            RemoveWall("LifeSupport_WallW", root.transform);
-
-            var lsTerminal = BuildTerminal("LifeSupportTerminal", new Vector3(18f, 1.15f, 24.6f), Quaternion.Euler(0, 180, 0), mats);
+            // ---- Terminals ----
+            var lsTerminal = BuildTerminal("LifeSupportTerminal", new Vector3(6.3f, 1.15f, 25.5f), Quaternion.Euler(0, 90, 0), mats);
             lsTerminal.transform.SetParent(root.transform, true);
             lsTerminal.AddComponent<LifeSupportTerminal>();
             var slot = lsTerminal.AddComponent<PowerCellSlot>();
-            var cellVisual = Cube("CellVisual", new Vector3(18f, 1.35f, 24.2f), new Vector3(0.25f, 0.35f, 0.25f), mats["pickup"], LWorld);
+            var cellVisual = Cube("CellVisual", new Vector3(6.05f, 1.4f, 25.5f), new Vector3(0.25f, 0.35f, 0.25f), mats["pickup"], LWorld);
             cellVisual.SetActive(false);
             cellVisual.transform.SetParent(lsTerminal.transform, true);
             var slGo = new GameObject("StatusLight");
             slGo.transform.SetParent(lsTerminal.transform);
-            slGo.transform.localPosition = new Vector3(0.65f, 1.5f, -0.3f);
+            slGo.transform.localPosition = new Vector3(0.5f, 1.5f, 0.3f);
             var sl = slGo.AddComponent<Light>();
             sl.type = LightType.Point;
             sl.range = 3.5f;
             sl.intensity = 2.5f;
             sl.color = new Color(0.9f, 0.1f, 0.1f);
-            slGo.AddComponent<FlickerLight>();
+            slGo.AddComponent<SignalLost.World.FlickerLight>();
 
-            // Log terminal in hub corner
-            var logTerminal = BuildTerminal("LogTerminal018", new Vector3(-4.4f, 1.15f, 26.4f), Quaternion.Euler(0, 90, 0), mats);
+            var logTerminal = BuildTerminal("LogTerminal018", new Vector3(-6.3f, 1.15f, 18.5f), Quaternion.Euler(0, -90, 0), mats);
             logTerminal.transform.SetParent(root.transform, true);
-            var logTerm = logTerminal.AddComponent<AudioLogTerminal>();
+            logTerminal.AddComponent<AudioLogTerminal>();
 
-            // --- Corridor C north: z 27..37 ---
-            Room("CorridorC", new Vector3(0, 1.5f, 32), new Vector3(3, 3, 10), mats, root.transform);
-            RemoveWall("CorridorC_WallS", root.transform);
-            RemoveWall("CorridorC_WallN", root.transform);
-
-            // --- Comm room: 8x3.4x8 at z=41 ---
-            Room("CommRoom", new Vector3(0, 1.7f, 41), new Vector3(8, 3.4f, 8), mats, root.transform);
-            RemoveWall("CommRoom_WallS", root.transform);
-            WallWithDoorGap(mats, root.transform, "Comm_S", new Vector3(0, 1.7f, 37f), new Vector3(8, 3.4f, 1), 'z', 1.4f);
-            var doorComm = BuildDoor("door_comm", new Vector3(0, 1.7f, 37f), mats, root.transform);
-            var soComm = new SerializedObject(doorComm.GetComponent<DoorController>());
-            soComm.FindProperty("accessLevel").intValue = 1;
-            soComm.ApplyModifiedPropertiesWithoutUndo();
-
-            var commTerminal = BuildTerminal("CommTerminal", new Vector3(0, 1.15f, 44.6f), Quaternion.Euler(0, 180, 0), mats);
+            var commTerminal = BuildTerminal("CommTerminal", new Vector3(0, 1.15f, 47.2f), Quaternion.Euler(0, 180, 0), mats);
             commTerminal.transform.SetParent(root.transform, true);
             commTerminal.AddComponent<CommTerminal>();
 
-            // --- Pickups ---
-            BuildPickup("Pickup_PowerCell", new Vector3(3.6f, 0.55f, 19.2f), new Vector3(0.3f, 0.3f, 0.3f), mats["pickup"], root.transform, "pickup_power_cell");
-            BuildPickup("Pickup_Medkit", new Vector3(-3.6f, 0.45f, 19.8f), new Vector3(0.35f, 0.25f, 0.5f), mats["screenRed"], root.transform, "pickup_medkit");
-            BuildPickup("Pickup_Battery", new Vector3(2.8f, 0.45f, 39.8f), new Vector3(0.25f, 0.25f, 0.25f), mats["screenAmber"], root.transform, "pickup_battery");
-            BuildPickup("Pickup_Keycard", new Vector3(-2.8f, 0.45f, 25.5f), new Vector3(0.3f, 0.04f, 0.2f), mats["screenGreen"], root.transform, "pickup_keycard");
+            // ---- Pickups ----
+            BuildPickup("Pickup_PowerCell", new Vector3(11f, 0.5f, 24f), new Vector3(0.3f, 0.3f, 0.3f), mats["pickup"], root.transform, "pickup_power_cell");
+            BuildPickup("Pickup_Medkit", new Vector3(-11f, 0.45f, 20f), new Vector3(0.35f, 0.25f, 0.5f), mats["screenRed"], root.transform, "pickup_medkit");
+            BuildPickup("Pickup_Keycard", new Vector3(-13f, 0.45f, 24f), new Vector3(0.3f, 0.04f, 0.2f), mats["screenGreen"], root.transform, "pickup_keycard");
+            BuildPickup("Pickup_Battery", new Vector3(3f, 0.45f, 40f), new Vector3(0.25f, 0.25f, 0.25f), mats["screenAmber"], root.transform, "pickup_battery");
+            BuildPickup("Pickup_BatteryHub", new Vector3(-5f, 0.45f, 19.5f), new Vector3(0.25f, 0.25f, 0.25f), mats["screenAmber"], root.transform, "pickup_battery_hub");
 
-            // --- Emergency lights (pre-life-support, dim red) ---
+            // ---- Dressing ----
+            for (int i = 0; i < 4; i++)
+            {
+                var crate = Cube($"Crate_{i}", new Vector3(i % 2 == 0 ? 10f : 14f, 0.5f, i < 2 ? 20f : 26f), new Vector3(0.9f, 1f, 0.9f), mats["crate"], LWorld);
+                crate.transform.SetParent(root.transform, true);
+            }
+            var bed = Cube("MedBay_Bed", new Vector3(-13f, 0.45f, 19f), new Vector3(0.9f, 0.55f, 2f), mats["pod"], LWorld);
+            bed.transform.SetParent(root.transform, true);
+
+            // ---- Area signage ----
+            AddSign("Sign_HubEnter", new Vector3(0, 1f, 16f), new Vector3(2.8f, 2.5f, 2f), "HABITATION DECK", root.transform);
+            AddSign("Sign_Storage", new Vector3(9f, 1f, 22f), new Vector3(1.5f, 2.5f, 2.8f), "STORAGE BAY", root.transform);
+            AddSign("Sign_Medbay", new Vector3(-9f, 1f, 22f), new Vector3(1.5f, 2.5f, 2.8f), "MEDBAY", root.transform);
+            AddSign("Sign_NorthCorridor", new Vector3(0, 1f, 30.5f), new Vector3(2.8f, 2.5f, 1.5f), "NORTH CORRIDOR", root.transform);
+            AddSign("Sign_Comm", new Vector3(0, 1f, 39.5f), new Vector3(2.8f, 2.5f, 1.5f), "COMMUNICATION DECK", root.transform);
+
+            // ---- Emergency lighting (dim red, pre-restoration) ----
             var lightsRoot = new GameObject("Lights");
             lightsRoot.transform.SetParent(root.transform);
-            foreach (var (pos, color, intensity) in new[] {
-                 (new Vector3(0, 2.7f, 10f), new Color(0.55f, 0.08f, 0.06f), 1.1f),
-                 (new Vector3(0, 2.9f, 22f), new Color(0.5f, 0.07f, 0.06f), 1.0f),
-                 (new Vector3(18, 2.8f, 22f), new Color(0.5f, 0.07f, 0.06f), 1.0f),
-                 (new Vector3(0, 2.7f, 32f), new Color(0.55f, 0.08f, 0.06f), 1.1f),
+            foreach (var (pos, intensity, range) in new[] {
+                 (new Vector3(0, 2.7f, 0.5f), 2.2f, 9f),
+                 (new Vector3(0, 2.7f, 6f), 2.6f, 12f),
+                 (new Vector3(0, 2.7f, 12f), 2.4f, 11f),
+                 (new Vector3(0, 3.2f, 22f), 2.4f, 16f),
+                 (new Vector3(-12, 2.9f, 22), 2.0f, 11f),
+                 (new Vector3(12, 2.9f, 22), 2.0f, 11f),
+                 (new Vector3(0, 2.7f, 31f), 2.6f, 11f),
+                 (new Vector3(0, 2.7f, 36f), 2.6f, 11f),
+                 (new Vector3(0, 3.2f, 40f), 2.2f, 11f),
             })
             {
                 var lGo = new GameObject("EmergencyLight");
@@ -417,17 +554,20 @@ namespace SignalLost.EditorTools
                 lGo.transform.position = pos;
                 var l = lGo.AddComponent<Light>();
                 l.type = LightType.Point;
-                l.range = 9f;
+                l.range = range;
                 l.intensity = intensity;
-                l.color = color;
-                lGo.AddComponent<FlickerLight>();
+                l.color = new Color(0.6f, 0.09f, 0.07f);
+                lGo.AddComponent<SignalLost.World.FlickerLight>();
             }
 
             foreach (var pos in new[] {
-                 new Vector3(0, 3.0f, 22f),
-                 new Vector3(11, 3.0f, 22f),
-                 new Vector3(18, 2.9f, 22f),
-                 new Vector3(0, 3.0f, 41f),
+                 new Vector3(0, 2.8f, 1f),
+                 new Vector3(-4, 3.2f, 22f),
+                 new Vector3(4, 3.2f, 22f),
+                 new Vector3(-12, 2.9f, 24),
+                 new Vector3(12, 2.9f, 24),
+                 new Vector3(0, 2.7f, 33.5f),
+                 new Vector3(0, 3.2f, 44f),
             })
             {
                 var lGo = new GameObject("MainLight");
@@ -435,7 +575,7 @@ namespace SignalLost.EditorTools
                 lGo.transform.position = pos;
                 var l = lGo.AddComponent<Light>();
                 l.type = LightType.Point;
-                l.range = 11f;
+                l.range = 12f;
                 l.intensity = 0f;
                 l.color = new Color(0.8f, 0.85f, 0.95f);
                 l.shadows = LightShadows.None;
@@ -443,21 +583,13 @@ namespace SignalLost.EditorTools
 
             var rigGo = new GameObject("LightRig");
             rigGo.transform.SetParent(lightsRoot.transform);
-            var rig = rigGo.AddComponent<LightRig>();
+            var rig = rigGo.AddComponent<SignalLost.World.LightRig>();
             var soRig = new SerializedObject(rig);
-            soRig.FindProperty("targetIntensity").floatValue = 1.7f;
+            soRig.FindProperty("targetIntensity").floatValue = 1.8f;
             soRig.FindProperty("fadeDuration").floatValue = 4f;
             soRig.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
-        }
-
-        static void RemoveWall(string wallName, Transform parent)
-        {
-            var found = parent.Find(wallName);
-            if (found != null) UnityEngine.Object.DestroyImmediate(found.gameObject);
-            var alt = GameObject.Find(wallName);
-            if (alt != null) UnityEngine.Object.DestroyImmediate(alt);
         }
 
         static void BuildPickup(string name, Vector3 pos, Vector3 scale, Material mat, Transform parent, string id)
@@ -483,7 +615,7 @@ namespace SignalLost.EditorTools
             var go = new GameObject("Player");
             go.tag = "Player";
             go.layer = LPlayer;
-            go.transform.position = new Vector3(0, 1.0f, 0.6f);
+            go.transform.position = new Vector3(0, 1.0f, -1.5f);
 
             var cc = go.AddComponent<CharacterController>();
             cc.height = 1.8f;
@@ -506,9 +638,9 @@ namespace SignalLost.EditorTools
             flashGo.transform.localPosition = new Vector3(0.2f, -0.1f, 0.1f);
             var spot = flashGo.AddComponent<Light>();
             spot.type = LightType.Spot;
-            spot.range = 18f;
-            spot.spotAngle = 42f;
-            spot.intensity = 8f;
+            spot.range = 15f;
+            spot.spotAngle = 58f;
+            spot.intensity = 5f;
             spot.color = new Color(1f, 0.97f, 0.9f);
             spot.shadows = LightShadows.Soft;
 
@@ -561,7 +693,7 @@ namespace SignalLost.EditorTools
         {
             var go = new GameObject("Echo");
             go.layer = LEnemy;
-            go.transform.position = new Vector3(0, 0f, 23.5f);
+            go.transform.position = new Vector3(0, 0f, 33.5f);
 
             var body = Cube("Echo_Body", go.transform.position, new Vector3(0.55f, 1.7f, 0.4f), GetMat("echo_body"), LEnemy);
             body.transform.SetParent(go.transform);
@@ -599,9 +731,9 @@ namespace SignalLost.EditorTools
 
             var wps = new[]
             {
-                new Vector3(-2.5f, 0, 21f),
-                new Vector3(2.5f, 0, 24f),
-                new Vector3(-2.5f, 0, 21f),
+                new Vector3(0, 0, 30.5f),
+                new Vector3(0, 0, 36.5f),
+                new Vector3(0, 0, 30.5f),
             };
             var wpObjects = new GameObject[wps.Length];
             var wpParent = new GameObject("EchoWaypoints");
@@ -683,6 +815,7 @@ namespace SignalLost.EditorTools
             WirePickup("Pickup_PowerCell", "power_cell", "pickup_power_cell");
             WirePickup("Pickup_Medkit", "medkit", "pickup_medkit");
             WirePickup("Pickup_Battery", "battery", "pickup_battery");
+            WirePickup("Pickup_BatteryHub", "battery", "pickup_battery_hub");
             WirePickup("Pickup_Keycard", "keycard_l1", "pickup_keycard");
 
             var commTerminal = GameObject.Find("CommTerminal").GetComponent<CommTerminal>();
@@ -692,7 +825,7 @@ namespace SignalLost.EditorTools
 
             var anomaly = GameObject.Find("DoorAnomaly").GetComponent<DoorAnomalyEvent>();
             so = new SerializedObject(anomaly);
-            so.FindProperty("targetDoor").objectReferenceValue = FindDoor("door_anomaly");
+            so.FindProperty("targetDoor").objectReferenceValue = FindDoor("door_storage");
             so.ApplyModifiedPropertiesWithoutUndo();
 
             var lightRig = GameObject.Find("LightRig").GetComponent<LightRig>();

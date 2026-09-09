@@ -51,6 +51,7 @@ namespace SignalLost.AI
         {
             _spawnPos = transform.position;
             if (agent == null) agent = GetComponent<NavMeshAgent>();
+            if (agent != null) agent.enabled = false;
             if (perception == null) perception = GetComponent<EnemyPerception>();
             if (player == null)
             {
@@ -62,6 +63,28 @@ namespace SignalLost.AI
         }
 
         private void OnDestroy() => NoiseSystem.Unregister(this);
+
+        private void Start()
+        {
+            StartCoroutine(InitializeAgent());
+        }
+
+        private System.Collections.IEnumerator InitializeAgent()
+        {
+            // NavMesh data may load after scene start in builds; retry placement for a few frames.
+            for (int i = 0; i < 60; i++)
+            {
+                if (NavMesh.SamplePosition(_spawnPos, out var hit, 3f, NavMesh.AllAreas))
+                {
+                    agent.enabled = true;
+                    if (!agent.isOnNavMesh) agent.Warp(hit.position);
+                    if (agent.isOnNavMesh) yield break;
+                }
+                yield return null;
+            }
+            Debug.LogWarning("[Echo] failed to place on NavMesh, agent disabled", this);
+            agent.enabled = false;
+        }
 
         private void Update()
         {
