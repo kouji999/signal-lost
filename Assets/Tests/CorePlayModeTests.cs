@@ -138,6 +138,8 @@ namespace SignalLost.Tests
         {
             var echo = GameObject.Find("Echo").GetComponent<EchoController>();
             Assert.That(echo, Is.Not.Null);
+            echo.ForceWake();
+            yield return new WaitForSeconds(0.3f);
 
             var noisePos = echo.transform.position + new Vector3(2f, 0f, 0f);
             NoiseSystem.EmitNoise(noisePos, 12f, null);

@@ -1,4 +1,6 @@
+using System.Collections;
 using System.Collections.Generic;
+using SignalLost.Core;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -6,6 +8,7 @@ namespace SignalLost.AI
 {
     public enum EnemyState
     {
+        Dormant,
         Idle,
         Patrol,
         Investigate,
@@ -18,16 +21,17 @@ namespace SignalLost.AI
     public class EchoController : MonoBehaviour, INoiseListener
     {
         [Header("Movement")]
-        [SerializeField] private float patrolSpeed = 1.4f;
-        [SerializeField] private float investigateSpeed = 2.6f;
-        [SerializeField] private float chaseSpeed = 3.6f;
-        [SerializeField] private float stoppingDistance = 1.1f;
+        [SerializeField] private float patrolSpeed = 1.0f;
+        [SerializeField] private float investigateSpeed = 1.8f;
+        [SerializeField] private float chaseSpeed = 2.4f;
 
         [Header("Perception tuning")]
-        [SerializeField] private float loseSightTime = 4.5f;
-        [SerializeField] private float searchDuration = 9f;
-        [SerializeField] private float attackDamage = 22f;
-        [SerializeField] private float attackInterval = 1.2f;
+        [SerializeField] private float loseSightTime = 5f;
+        [SerializeField] private float searchDuration = 10f;
+        [SerializeField] private float attackDamage = 34f;
+        [SerializeField] private float attackInterval = 1.4f;
+        [SerializeField] private float attackRange = 1.5f;
+        [SerializeField] private float dormantTime = 35f;
         [SerializeField] private Transform[] patrolPoints;
 
         [Header("Refs")]
@@ -36,22 +40,25 @@ namespace SignalLost.AI
         [SerializeField] private SignalLost.Player.PlayerVitals playerVitals;
         [SerializeField] private Transform player;
 
-        public EnemyState State { get; private set; } = EnemyState.Idle;
+        public EnemyState State { get; private set; } = EnemyState.Dormant;
 
-        private readonly List<int> _patrolIndices = new();
         private int _patrolIndex;
         private float _stateTimer;
         private float _lastSeenTimer;
         private float _attackTimer;
+        private float _stuckTimer;
+        private float _dormantTimer;
         private Vector3 _investigatePos;
+        private Vector3 _lastPos;
         private Vector3 _spawnPos;
         private bool _playerVisible;
+        private bool _awake;
 
         private void Awake()
         {
             _spawnPos = transform.position;
+            _lastPos = transform.position;
             if (agent == null) agent = GetComponent<NavMeshAgent>();
-            if (agent != null) agent.enabled = false;
             if (perception == null) perception = GetComponent<EnemyPerception>();
             if (player == null)
             {
@@ -59,6 +66,7 @@ namespace SignalLost.AI
                 if (pc != null) player = pc.transform;
             }
             if (playerVitals == null && player != null) playerVitals = player.GetComponent<SignalLost.Player.PlayerVitals>();
+            if (agent != null) agent.enabled = false;
             NoiseSystem.Register(this);
         }
 
@@ -71,14 +79,17 @@ namespace SignalLost.AI
 
         private System.Collections.IEnumerator InitializeAgent()
         {
-            // NavMesh data may load after scene start in builds; retry placement for a few frames.
-            for (int i = 0; i < 60; i++)
+            for (int i = 0; i < 90; i++)
             {
                 if (NavMesh.SamplePosition(_spawnPos, out var hit, 3f, NavMesh.AllAreas))
                 {
                     agent.enabled = true;
                     if (!agent.isOnNavMesh) agent.Warp(hit.position);
-                    if (agent.isOnNavMesh) yield break;
+                    if (agent.isOnNavMesh)
+                    {
+                        agent.speed = patrolSpeed;
+                        yield break;
+                    }
                 }
                 yield return null;
             }
@@ -88,7 +99,13 @@ namespace SignalLost.AI
 
         private void Update()
         {
-            if (player == null || agent == null || !agent.isOnNavMesh) return;
+            if (!_awake)
+            {
+                _dormantTimer += Time.deltaTime;
+                if (_dormantTimer >= dormantTime) Wake();
+                return;
+            }
+            if (player == null || agent == null || !agent.enabled || !agent.isOnNavMesh) return;
             _playerVisible = perception.CanSee(player);
 
             if (_playerVisible) { perception.ReportPlayerSighting(player.position); _lastSeenTimer = 0f; }
@@ -98,12 +115,22 @@ namespace SignalLost.AI
             if (next != State) TransitionTo(next);
 
             Act();
+            TryForceOpenDoor();
 
             _attackTimer -= Time.deltaTime;
         }
 
+        private void Wake()
+        {
+            _awake = true;
+            State = EnemyState.Idle;
+            EventBus.Publish(new SubtitleEvent("A.R.I.A.", "Power restoration has reactivated the north corridor. A former crew member remains there. I... cannot bring myself to classify it as human anymore. Avoid the communication deck.", 8f));
+        }
+
         private EnemyState EvaluateState()
         {
+            var dist = player != null ? Vector3.Distance(transform.position, player.position) : 999f;
+
             switch (State)
             {
                 case EnemyState.Idle:
@@ -131,12 +158,6 @@ namespace SignalLost.AI
                     if (_stateTimer <= 0f) return EnemyState.Return;
                     break;
 
-                case EnemyState.Attack:
-                    if (!_playerVisible) return EnemyState.Chase;
-                    var dist = Vector3.Distance(transform.position, player.position);
-                    if (dist > stoppingDistance + 0.4f) return EnemyState.Chase;
-                    break;
-
                 case EnemyState.Return:
                     if (_playerVisible) return EnemyState.Chase;
                     if (AgentDone()) return EnemyState.Idle;
@@ -147,6 +168,7 @@ namespace SignalLost.AI
 
         private void TransitionTo(EnemyState next)
         {
+            if (next == EnemyState.Dormant) return;
             State = next;
             _stateTimer = searchDuration;
             if (agent == null || !agent.isOnNavMesh) return;
@@ -174,14 +196,24 @@ namespace SignalLost.AI
         private void Act()
         {
             if (agent == null || !agent.isOnNavMesh) return;
+            var dist = Vector3.Distance(transform.position, player.position);
+
             switch (State)
             {
                 case EnemyState.Chase:
                     agent.speed = chaseSpeed;
                     if (perception.LastKnownPlayerPosition.HasValue)
                         agent.SetDestination(perception.LastKnownPlayerPosition.Value);
-                    var dist = Vector3.Distance(transform.position, player.position);
-                    if (dist <= stoppingDistance) TransitionTo(EnemyState.Attack);
+                    if (dist <= attackRange) TransitionTo(EnemyState.Attack);
+                    break;
+
+                case EnemyState.Attack:
+                    if (dist > attackRange + 0.5f) { TransitionTo(EnemyState.Chase); break; }
+                    if (_attackTimer <= 0f && playerVitals != null)
+                    {
+                        playerVitals.Damage(attackDamage);
+                        _attackTimer = attackInterval;
+                    }
                     break;
 
                 case EnemyState.Patrol:
@@ -192,14 +224,30 @@ namespace SignalLost.AI
                     if (AgentDone() && _stateTimer > 0f)
                         agent.SetDestination(transform.position + Random.insideUnitSphere * 4f);
                     break;
+            }
+        }
 
-                case EnemyState.Attack:
-                    if (_attackTimer <= 0f && playerVitals != null)
+        private void TryForceOpenDoor()
+        {
+            if (State != EnemyState.Chase && State != EnemyState.Investigate && State != EnemyState.Search) return;
+
+            if ((transform.position - _lastPos).magnitude < 0.05f * Time.deltaTime * 60f) _stuckTimer += Time.deltaTime;
+            else _stuckTimer = 0f;
+            _lastPos = transform.position;
+
+            if (_stuckTimer > 1.2f)
+            {
+                _stuckTimer = 0f;
+                foreach (var d in SignalLost.Interaction.DoorRegistry.All)
+                {
+                    if (d.IsOpen) continue;
+                    if (Vector3.Distance(transform.position, d.transform.position) < 4.5f)
                     {
-                        playerVitals.Damage(attackDamage);
-                        _attackTimer = attackInterval;
+                        d.SetOpen(true, broadcast: true);
+                        SignalLost.Core.EventBus.Publish(new SubtitleEvent("SYSTEM", "*** BANG ***", 1.6f));
+                        break;
                     }
-                    break;
+                }
             }
         }
 
@@ -215,12 +263,19 @@ namespace SignalLost.AI
 
         public void OnNoiseHeard(Vector3 position, float radius, GameObject source)
         {
+            if (!_awake) return;
             if (State == EnemyState.Chase || State == EnemyState.Attack) return;
             if (Vector3.Distance(transform.position, position) > radius) return;
             _investigatePos = position;
             TransitionTo(EnemyState.Investigate);
         }
 
-        public void TeleportTo(Vector3 pos) => agent.Warp(pos);
+        public void ForceWake()
+        {
+            if (_awake) return;
+            _dormantTimer = dormantTime;
+        }
+
+        public void SetDormantTime(float t) => dormantTime = t;
     }
 }

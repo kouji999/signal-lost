@@ -22,8 +22,12 @@ namespace SignalLost.UI
         [SerializeField] private Text speakerText;
         [SerializeField] private Text subtitleText;
 
+        [Header("Damage vignette")]
+        [SerializeField] private CanvasGroup damageVignette;
+
         private Player.PlayerVitals _vitals;
         private Coroutine _subtitleRoutine;
+        private Coroutine _vignetteRoutine;
 
         private void Start()
         {
@@ -34,6 +38,7 @@ namespace SignalLost.UI
             EventBus.Subscribe<InteractableFocused>(OnFocused);
             EventBus.Subscribe<ObjectiveChanged>(OnObjectiveChanged);
             EventBus.Subscribe<SubtitleEvent>(OnSubtitle);
+            EventBus.Subscribe<PlayerDamaged>(OnDamaged);
 
             RefreshObjectives();
             SetPrompt(null);
@@ -45,6 +50,27 @@ namespace SignalLost.UI
             EventBus.Unsubscribe<InteractableFocused>(OnFocused);
             EventBus.Unsubscribe<ObjectiveChanged>(OnObjectiveChanged);
             EventBus.Unsubscribe<SubtitleEvent>(OnSubtitle);
+            EventBus.Unsubscribe<PlayerDamaged>(OnDamaged);
+        }
+
+        private void OnDamaged(PlayerDamaged evt)
+        {
+            if (damageVignette == null) return;
+            if (_vignetteRoutine != null) StopCoroutine(_vignetteRoutine);
+            _vignetteRoutine = StartCoroutine(VignetteFlash());
+        }
+
+        private IEnumerator VignetteFlash()
+        {
+            damageVignette.alpha = 0.55f;
+            float t = 0f;
+            while (t < 0.9f)
+            {
+                t += Time.deltaTime;
+                damageVignette.alpha = Mathf.Lerp(0.55f, 0f, t / 0.9f);
+                yield return null;
+            }
+            damageVignette.alpha = 0f;
         }
 
         private void OnVitalsChanged(VitalsChanged evt)

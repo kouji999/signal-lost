@@ -17,7 +17,10 @@ namespace SignalLost.UI
             "LIFE SUPPORT: 12%",
             "COMMUNICATION: OFFLINE",
             "REACTOR: CRITICAL",
-            "CREW STATUS: UNKNOWN"
+            "CREW STATUS: UNKNOWN",
+            "EMERGENCY RECOVERY LOG // KEPLER-9 DEEP RESEARCH STATION",
+            "SURVIVOR: TECHNICIAN S. HALE - POD 04",
+            "UNCONSCIOUS: 71 HOURS"
         };
 
         public IEnumerator Play()

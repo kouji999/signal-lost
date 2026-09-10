@@ -1,6 +1,7 @@
 using System.Collections;
 using SignalLost.Core;
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace SignalLost.Interaction
 {
@@ -8,18 +9,16 @@ namespace SignalLost.Interaction
     {
         [SerializeField] private string doorId = "door_01";
         [SerializeField] private Transform slidePanel;
-        [SerializeField] private float openOffset = 2.4f;
         [SerializeField] private float openSpeed = 2.2f;
         [SerializeField] private bool startOpen;
         [SerializeField] private int accessLevel;
         [SerializeField] private string lockedHint = "ACCESS DENIED - SECURITY LEVEL REQUIRED";
-        [SerializeField] private bool lockedByFlag;
-        [SerializeField] private string requiredFlag;
 
-        private Vector3 _closedPos;
-        private Vector3 _openPos;
+        private float _panelHeight;
+        private float _topY;
         private bool _open;
         private Coroutine _anim;
+        private UnityEngine.AI.NavMeshObstacle _obstacle;
 
         public string DoorId => doorId;
         public bool IsOpen => _open;
@@ -27,10 +26,19 @@ namespace SignalLost.Interaction
 
         private void Awake()
         {
-            _closedPos = slidePanel.localPosition;
-            _openPos = _closedPos + new Vector3(0f, openOffset, 0f);
-            _open = startOpen;
-            slidePanel.localPosition = _open ? _openPos : _closedPos;
+            _panelHeight = slidePanel.localScale.y;
+            _topY = slidePanel.localPosition.y + _panelHeight / 2f;
+            _obstacle = slidePanel.GetComponent<UnityEngine.AI.NavMeshObstacle>();
+            if (_obstacle == null)
+            {
+                _obstacle = slidePanel.gameObject.AddComponent<NavMeshObstacle>();
+                _obstacle.shape = NavMeshObstacleShape.Box;
+                _obstacle.carving = true;
+                _obstacle.center = Vector3.zero;
+                _obstacle.size = new Vector3(2.8f, 3f, 0.3f);
+            }
+            if (startOpen) SetOpen(true);
+            else ApplyProgress(0f);
             DoorRegistry.Register(this);
         }
 
@@ -47,11 +55,6 @@ namespace SignalLost.Interaction
                     return false;
                 }
             }
-            if (lockedByFlag && !string.IsNullOrEmpty(requiredFlag) && !StoryFlagSystem.IsSet(requiredFlag))
-            {
-                EventBus.Publish(new SubtitleEvent("SYSTEM", lockedHint, 2.5f));
-                return false;
-            }
             return true;
         }
 
@@ -64,20 +67,45 @@ namespace SignalLost.Interaction
         public void SetOpen(bool open, bool broadcast = false)
         {
             _open = open;
-            var target = open ? _openPos : _closedPos;
             if (_anim != null) StopCoroutine(_anim);
-            _anim = StartCoroutine(AnimateTo(target));
+            _anim = open ? StartCoroutine(ShutterDown()) : StartCoroutine(ShutterUp());
             if (broadcast) EventBus.Publish(new DoorStateChanged(doorId, open));
         }
 
-        private IEnumerator AnimateTo(Vector3 target)
+        private IEnumerator ShutterDown()
         {
-            while (Vector3.Distance(slidePanel.localPosition, target) > 0.01f)
+            float p = 0f;
+            while (p < 1f)
             {
-                slidePanel.localPosition = Vector3.MoveTowards(slidePanel.localPosition, target, openSpeed * Time.deltaTime);
+                p = Mathf.MoveTowards(p, 1f, openSpeed * Time.deltaTime);
+                ApplyProgress(p);
                 yield return null;
             }
-            slidePanel.localPosition = target;
+            ApplyProgress(1f);
+        }
+
+        private IEnumerator ShutterUp()
+        {
+            float p = 1f;
+            ApplyProgress(0f);
+            while (p > 0f)
+            {
+                p = Mathf.MoveTowards(p, 0f, openSpeed * Time.deltaTime);
+                ApplyProgress(p);
+                yield return null;
+            }
+        }
+
+        private void ApplyProgress(float p)
+        {
+            float s = Mathf.Lerp(1f, 0.02f, p);
+            var sc = slidePanel.localScale;
+            sc.y = _panelHeight * s;
+            slidePanel.localScale = sc;
+            var pos = slidePanel.localPosition;
+            pos.y = _topY - (_panelHeight * s) / 2f;
+            slidePanel.localPosition = pos;
+            if (_obstacle != null) _obstacle.enabled = s > 0.2f;
         }
     }
 

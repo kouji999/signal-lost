@@ -262,7 +262,8 @@ namespace SignalLost.EditorTools
             dict["screenAmber"] = Make("screen_amber", new Color(0.1f, 0.06f, 0.01f), 0.8f, 0f, new Color(2.8f, 1.4f, 0.1f));
             dict["crate"] = Make("crate", new Color(0.18f, 0.16f, 0.13f), 0.25f, 0.1f);
             dict["pickup"] = Make("pickup_glow", new Color(0.2f, 0.9f, 0.6f), 0.9f, 0f, new Color(0.1f, 0.8f, 0.5f));
-            dict["echo"] = Make("echo_body", new Color(0.05f, 0.05f, 0.06f), 0.1f, 0f);
+            dict["echo"] = Make("echo_body", new Color(0.62f, 0.60f, 0.58f), 0.15f, 0f);
+            dict["echoEye"] = Make("echo_eye", new Color(0.015f, 0.015f, 0.02f), 0.9f, 0f);
             return dict;
         }
 
@@ -334,8 +335,8 @@ namespace SignalLost.EditorTools
         {
             const float gapW = 3f;
             float side = (wallLen - gapW) / 2f;
-            float headerH = wallH + FloorTop - 2.95f;
-            float headerCY = 2.95f + headerH / 2f;
+            float headerH = wallH + FloorTop - 2.7f;
+            float headerCY = 2.7f + headerH / 2f;
 
             if (axis == 'z')
             {
@@ -366,23 +367,23 @@ namespace SignalLost.EditorTools
             root.transform.rotation = axis == 'z' ? Quaternion.identity : Quaternion.Euler(0f, 90f, 0f);
             root.layer = LInteractable;
 
-            float panelY = FloorTop + 2.95f / 2f;
+            float panelY = FloorTop + 2.6f / 2f;
             float panelW = 2.6f, fillerW = 0.2f;
 
-            var panel = Cube($"{id}_Panel", new Vector3(center.x, panelY, center.z), new Vector3(panelW, 2.95f, 0.12f), mats["door"], LWorld);
+            var panel = Cube($"{id}_Panel", new Vector3(center.x, panelY, center.z), new Vector3(panelW, 2.6f, 0.12f), mats["door"], LWorld);
             panel.transform.SetParent(root.transform, true);
 
             float sideOff = (panelW + fillerW) / 2f;
             Vector3 fl = axis == 'z' ? new Vector3(center.x - sideOff, panelY, center.z) : new Vector3(center.x, panelY, center.z - sideOff);
             Vector3 fr = axis == 'z' ? new Vector3(center.x + sideOff, panelY, center.z) : new Vector3(center.x, panelY, center.z + sideOff);
-            Vector3 fscale = axis == 'z' ? new Vector3(fillerW, 2.95f, 0.14f) : new Vector3(0.14f, 2.95f, fillerW);
+            Vector3 fscale = axis == 'z' ? new Vector3(fillerW, 2.6f, 0.14f) : new Vector3(0.14f, 2.6f, fillerW);
 
             Cube($"{id}_FillerL", fl, fscale, mats["wall"], LWorld).transform.SetParent(root.transform, true);
             Cube($"{id}_FillerR", fr, fscale, mats["wall"], LWorld).transform.SetParent(root.transform, true);
 
             if (signMat != null)
             {
-                float signY = 2.72f;
+                float signY = 2.85f;
                 for (int s = -1; s <= 1; s += 2)
                 {
                     Vector3 sp = axis == 'z' ? new Vector3(center.x, signY, center.z + s * 0.16f) : new Vector3(center.x + s * 0.16f, signY, center.z);
@@ -695,20 +696,35 @@ namespace SignalLost.EditorTools
             go.layer = LEnemy;
             go.transform.position = new Vector3(0, 0f, 33.5f);
 
-            var body = Cube("Echo_Body", go.transform.position, new Vector3(0.55f, 1.7f, 0.4f), GetMat("echo_body"), LEnemy);
-            body.transform.SetParent(go.transform);
-            body.transform.localPosition = new Vector3(0, 0.85f, 0);
-            UnityEngine.Object.DestroyImmediate(body.GetComponent<BoxCollider>());
+            var bodyMat = GetMat("echo_body");
+            var eyeMat = GetMat("echo_eye");
 
-            var head = Cube("Echo_Head", go.transform.position, new Vector3(0.32f, 0.35f, 0.32f), GetMat("echo_body"), LEnemy);
-            head.transform.SetParent(go.transform);
-            head.transform.localPosition = new Vector3(0, 1.85f, 0);
-            UnityEngine.Object.DestroyImmediate(head.GetComponent<BoxCollider>());
+            void Part(string n, Vector3 localPos, Vector3 scale)
+            {
+                var p = Cube(n, go.transform.position, scale, bodyMat, LEnemy);
+                p.transform.SetParent(go.transform);
+                p.transform.localPosition = localPos;
+                UnityEngine.Object.DestroyImmediate(p.GetComponent<BoxCollider>());
+            }
+
+            // Tall gaunt torso
+            Part("Echo_Torso", new Vector3(0, 1.05f, 0), new Vector3(0.42f, 1.15f, 0.26f));
+            // Head — slightly tilted forward
+            Part("Echo_Head", new Vector3(0, 1.78f, 0.06f), new Vector3(0.24f, 0.32f, 0.24f));
+            // Long arms reaching low
+            Part("Echo_ArmL", new Vector3(-0.31f, 1.05f, 0.02f), new Vector3(0.09f, 1.45f, 0.09f));
+            Part("Echo_ArmR", new Vector3(0.31f, 1.05f, 0.02f), new Vector3(0.09f, 1.45f, 0.09f));
+            // Thin legs
+            Part("Echo_LegL", new Vector3(-0.11f, 0.28f, 0), new Vector3(0.11f, 0.85f, 0.11f));
+            Part("Echo_LegR", new Vector3(0.11f, 0.28f, 0), new Vector3(0.11f, 0.85f, 0.11f));
+            // Hollow dark eyes (emissive off, void black)
+            Part("Echo_EyeL", new Vector3(-0.06f, 1.82f, 0.17f), new Vector3(0.055f, 0.09f, 0.03f));
+            Part("Echo_EyeR", new Vector3(0.06f, 1.82f, 0.17f), new Vector3(0.055f, 0.09f, 0.03f));
 
             var cap = go.AddComponent<CapsuleCollider>();
-            cap.height = 2f;
-            cap.radius = 0.35f;
-            cap.center = new Vector3(0, 1f, 0);
+            cap.height = 2.1f;
+            cap.radius = 0.32f;
+            cap.center = new Vector3(0, 1.05f, 0);
 
             var agent = go.AddComponent<NavMeshAgent>();
             agent.radius = 0.4f;
@@ -717,7 +733,7 @@ namespace SignalLost.EditorTools
 
             var eye = new GameObject("Eye");
             eye.transform.SetParent(go.transform);
-            eye.transform.localPosition = new Vector3(0, 1.75f, 0.25f);
+            eye.transform.localPosition = new Vector3(0, 1.78f, 0.25f);
 
             var perception = go.AddComponent<EnemyPerception>();
             SetPrivateField(perception, "eye", eye.transform);
@@ -952,6 +968,32 @@ namespace SignalLost.EditorTools
             var endText = CreateText(endRoot.transform, "EndText", font, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(900, 80), 32, TextAnchor.MiddleCenter);
             endText.color = new Color(0.9f, 0.1f, 0.1f);
 
+            // Damage vignette (full-screen red flash on hit)
+            var dmgRoot = new GameObject("DamageVignette");
+            dmgRoot.transform.SetParent(canvasGo.transform);
+            var dmgImg = dmgRoot.AddComponent<Image>();
+            dmgImg.sprite = white;
+            dmgImg.color = new Color(0.75f, 0.05f, 0.05f, 0.55f);
+            Stretch(dmgRoot.GetComponent<RectTransform>());
+            var dmgGroup = dmgRoot.AddComponent<CanvasGroup>();
+            dmgGroup.alpha = 0f;
+
+            // Pause menu panel
+            var pauseRoot = new GameObject("PausePanel");
+            pauseRoot.transform.SetParent(canvasGo.transform);
+            var pauseImg = pauseRoot.AddComponent<Image>();
+            pauseImg.sprite = white;
+            pauseImg.color = new Color(0.02f, 0.02f, 0.03f, 0.92f);
+            Stretch(pauseRoot.GetComponent<RectTransform>());
+            var pauseGroup = pauseRoot.AddComponent<CanvasGroup>();
+            pauseGroup.alpha = 0f;
+            var pauseText = CreateText(pauseRoot.transform, "PauseText", font, new Vector2(0.5f, 0.55f), Vector2.zero, new Vector2(900, 60), 40, TextAnchor.MiddleCenter);
+            pauseText.color = Color.white;
+            pauseText.text = "PAUSED";
+            var pauseHint = CreateText(pauseRoot.transform, "PauseHint", font, new Vector2(0.5f, 0.38f), Vector2.zero, new Vector2(900, 100), 20, TextAnchor.MiddleCenter);
+            pauseHint.color = new Color(0.75f, 0.78f, 0.82f);
+            pauseHint.text = "[R] RESUME\n[T] RESTART CHECKPOINT\n[Q] QUIT GAME";
+
             var eventSystem = new GameObject("EventSystem");
             eventSystem.AddComponent<EventSystem>();
             eventSystem.AddComponent<StandaloneInputModule>();
@@ -965,7 +1007,11 @@ namespace SignalLost.EditorTools
             so.FindProperty("objectiveText").objectReferenceValue = objective;
             so.FindProperty("speakerText").objectReferenceValue = speaker;
             so.FindProperty("subtitleText").objectReferenceValue = subtitle;
+            so.FindProperty("damageVignette").objectReferenceValue = dmgGroup;
             so.ApplyModifiedPropertiesWithoutUndo();
+
+            var pause = canvasGo.AddComponent<SignalLost.Narrative.PauseMenu>();
+            SetPrivateField(pause, "panel", pauseGroup);
 
             var intro = canvasGo.AddComponent<IntroScreen>();
             SetPrivateField(intro, "root", introGroup);

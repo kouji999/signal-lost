@@ -22,6 +22,13 @@ namespace SignalLost.Player
                 _focused.Interact(gameObject);
                 EventBus.Publish(new InteractPerformed(_focused, gameObject));
             }
+
+            var inv = GetComponent<Inventory.Inventory>();
+            if (inv != null)
+            {
+                for (int i = 0; i < 6; i++)
+                    if (Input.GetKeyDown(KeyCode.Alpha1 + i)) inv.UseSlot(i);
+            }
         }
 
         private void FindTarget()

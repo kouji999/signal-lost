@@ -29,10 +29,14 @@ namespace SignalLost.Narrative
 
         private IEnumerator OpeningRoutine()
         {
-            yield return new WaitForSeconds(2.5f);
-            Say(emergencyLine, 4f);
-            yield return new WaitForSeconds(4.5f);
-            Say(objectiveLine, 5f);
+            yield return new WaitForSeconds(1.8f);
+            Say("Emergency protocol activated.", 3.5f);
+            yield return new WaitForSeconds(4f);
+            Say("I am A.R.I.A., operations intelligence of Kepler-9. You are safe. For now.", 5f);
+            yield return new WaitForSeconds(5.5f);
+            Say("Your first task: restore Life Support. Find a power cell in the STORAGE BAY, east of this deck.", 6f);
+            yield return new WaitForSeconds(6.5f);
+            SaySystem("CONTROLS — [E] INTERACT   [F] FLASHLIGHT   [CTRL] CROUCH   [SHIFT] SPRINT   [ESC] PAUSE", 8f);
         }
 
         private void OnEnable()
@@ -53,9 +57,11 @@ namespace SignalLost.Narrative
         private IEnumerator RestoredRoutine()
         {
             yield return new WaitForSeconds(1.5f);
-            Say(lifeSupportRestoredLine, 4.5f);
+            Say("Life support restored. Atmospheric regulation at nominal.", 4.5f);
             yield return new WaitForSeconds(5f);
-            Say(doorAnomalyLine, 5f);
+            Say("Next: re-establish communication with Earth. The COMMUNICATION DECK is north. You will need a crew keycard.", 6f);
+            yield return new WaitForSeconds(6.5f);
+            Say("I detected... unauthorized door movement. No crew members are registered on this deck.", 5.5f);
         }
     }
 }
