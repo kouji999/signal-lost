@@ -410,7 +410,6 @@ namespace SignalLost.EditorTools
             var so = new SerializedObject(door);
             so.FindProperty("doorId").stringValue = id;
             so.FindProperty("slidePanel").objectReferenceValue = panel.transform;
-            so.FindProperty("openOffset").floatValue = wallH + 0.6f;
             so.ApplyModifiedPropertiesWithoutUndo();
             return root;
         }
