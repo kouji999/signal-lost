@@ -59,6 +59,8 @@ namespace SignalLost.EditorTools
 
             var level = BuildLevel(mats);
             var player = BuildPlayer();
+            BuildHunter(mats, level.transform, player);
+            BuildObserver(mats, level.transform);
             BuildEcho(player);
             BuildSystems(items, log);
             BuildHud();
@@ -184,6 +186,7 @@ namespace SignalLost.EditorTools
             dict["medkit"] = Item("medkit", "Medkit", "Standard issue trauma kit.", ItemKind.Consumable, new Color(0.9f, 0.2f, 0.2f), heal: 40f);
             dict["battery"] = Item("battery", "Battery Pack", "Recharges suit equipment.", ItemKind.Consumable, new Color(0.9f, 0.8f, 0.2f), battery: 50f);
             dict["keycard_l1"] = Item("keycard_l1", "Crew Keycard", "Security level 1.", ItemKind.Keycard, new Color(0.4f, 0.6f, 0.9f), access: 1);
+            dict["keycard_l2"] = Item("keycard_l2", "Security Keycard", "Security level 2. Research elevator access.", ItemKind.Keycard, new Color(0.9f, 0.3f, 0.3f), access: 2);
             return dict;
         }
 
@@ -207,19 +210,22 @@ namespace SignalLost.EditorTools
             return item;
         }
 
-        static AudioLogDefinition CreateLogAsset()
+        static AudioLogDefinition Log(string id, string title, string content)
         {
-            var path = $"{DataPath}/log_018.asset";
+            var path = $"{DataPath}/{id}.asset";
             var existing = AssetDatabase.LoadAssetAtPath<AudioLogDefinition>(path);
             if (existing != null) return existing;
 
             var log = ScriptableObject.CreateInstance<AudioLogDefinition>();
-            log.logId = "018";
-            log.title = "LOG #018 — DR. VASQUEZ";
-            log.content = "\"We found something beneath the facility. It's not geological. It responds to sound. A.R.I.A. says the object is safe. I've stopped trusting that word.\"";
+            log.logId = id;
+            log.title = title;
+            log.content = content;
             AssetDatabase.CreateAsset(log, path);
             return log;
         }
+
+        static AudioLogDefinition CreateLogAsset() => Log("log_018", "LOG #018 — DR. VASQUEZ",
+            "\"We found something beneath the facility. It's not geological. It responds to sound. A.R.I.A. says the object is safe. I've stopped trusting that word.\"");
 
         static Dictionary<string, Material> CreateMaterials()
         {
@@ -260,6 +266,7 @@ namespace SignalLost.EditorTools
             dict["screenRed"] = Make("screen_red", new Color(0.1f, 0.02f, 0.02f), 0.8f, 0f, new Color(2.6f, 0.12f, 0.1f));
             dict["screenGreen"] = Make("screen_green", new Color(0.02f, 0.1f, 0.04f), 0.8f, 0f, new Color(0.1f, 2.6f, 0.5f));
             dict["screenAmber"] = Make("screen_amber", new Color(0.1f, 0.06f, 0.01f), 0.8f, 0f, new Color(2.8f, 1.4f, 0.1f));
+            dict["screenCyan"] = Make("screen_cyan", new Color(0.01f, 0.06f, 0.08f), 0.8f, 0f, new Color(0.1f, 2.2f, 3f));
             dict["crate"] = Make("crate", new Color(0.18f, 0.16f, 0.13f), 0.25f, 0.1f);
             dict["pickup"] = Make("pickup_glow", new Color(0.2f, 0.9f, 0.6f), 0.9f, 0f, new Color(0.1f, 0.8f, 0.5f));
             dict["echo"] = Make("echo_body", new Color(0.62f, 0.60f, 0.58f), 0.15f, 0f);
@@ -281,42 +288,44 @@ namespace SignalLost.EditorTools
         const float FloorTop = 0.1f;
 
         static void RoomSealed(string name, Vector3 center, Vector3 size, Dictionary<string, Material> mats,
-            Transform parent, bool openS = false, bool openN = false, bool openE = false, bool openW = false)
+            Transform parent, bool openS = false, bool openN = false, bool openE = false, bool openW = false, float floorY = 0f)
         {
             var r = new GameObject(name);
             r.transform.SetParent(parent);
             r.transform.position = center;
 
             float w = size.x, h = size.y, d = size.z;
-            float wallCY = FloorTop + h / 2f;
+            float top = floorY + 0.1f;
+            float wallCY = top + h / 2f;
 
-            Cube($"{name}_Floor", new Vector3(center.x, 0f, center.z), new Vector3(w + 0.4f, 0.2f, d + 0.4f), mats["floor"], LWorld).transform.SetParent(r.transform, true);
-            Cube($"{name}_Ceiling", new Vector3(center.x, h + FloorTop, center.z), new Vector3(w + 0.4f, 0.2f, d + 0.4f), mats["ceiling"], LWorld).transform.SetParent(r.transform, true);
+            Cube($"{name}_Floor", new Vector3(center.x, floorY, center.z), new Vector3(w + 0.4f, 0.2f, d + 0.4f), mats["floor"], LWorld).transform.SetParent(r.transform, true);
+            Cube($"{name}_Ceiling", new Vector3(center.x, top + h, center.z), new Vector3(w + 0.4f, 0.2f, d + 0.4f), mats["ceiling"], LWorld).transform.SetParent(r.transform, true);
 
-            if (openW) GapWall(r.transform, mats, $"{name}_W", new Vector3(center.x - w / 2f, wallCY, center.z), d, h, 'x');
+            if (openW) GapWall(r.transform, mats, $"{name}_W", new Vector3(center.x - w / 2f, wallCY, center.z), d, h, 'x', top);
             else Cube($"{name}_WallW", new Vector3(center.x - w / 2f, wallCY, center.z), new Vector3(0.2f, h, d), mats["wall"], LWorld).transform.SetParent(r.transform, true);
 
-            if (openE) GapWall(r.transform, mats, $"{name}_E", new Vector3(center.x + w / 2f, wallCY, center.z), d, h, 'x');
+            if (openE) GapWall(r.transform, mats, $"{name}_E", new Vector3(center.x + w / 2f, wallCY, center.z), d, h, 'x', top);
             else Cube($"{name}_WallE", new Vector3(center.x + w / 2f, wallCY, center.z), new Vector3(0.2f, h, d), mats["wall"], LWorld).transform.SetParent(r.transform, true);
 
-            if (openS) GapWall(r.transform, mats, $"{name}_S", new Vector3(center.x, wallCY, center.z - d / 2f), w, h, 'z');
+            if (openS) GapWall(r.transform, mats, $"{name}_S", new Vector3(center.x, wallCY, center.z - d / 2f), w, h, 'z', top);
             else Cube($"{name}_WallS", new Vector3(center.x, wallCY, center.z - d / 2f), new Vector3(w, h, 0.2f), mats["wall"], LWorld).transform.SetParent(r.transform, true);
 
-            if (openN) GapWall(r.transform, mats, $"{name}_N", new Vector3(center.x, wallCY, center.z + d / 2f), w, h, 'z');
+            if (openN) GapWall(r.transform, mats, $"{name}_N", new Vector3(center.x, wallCY, center.z + d / 2f), w, h, 'z', top);
             else Cube($"{name}_WallN", new Vector3(center.x, wallCY, center.z + d / 2f), new Vector3(w, h, 0.2f), mats["wall"], LWorld).transform.SetParent(r.transform, true);
         }
 
-        static void Corridor(string name, Vector3 center, Vector3 size, Dictionary<string, Material> mats, Transform parent, bool axisZ)
+        static void Corridor(string name, Vector3 center, Vector3 size, Dictionary<string, Material> mats, Transform parent, bool axisZ, float floorY = 0f)
         {
             var r = new GameObject(name);
             r.transform.SetParent(parent);
             r.transform.position = center;
 
             float w = size.x, h = size.y, d = size.z;
-            float wallCY = FloorTop + h / 2f;
+            float top = floorY + 0.1f;
+            float wallCY = top + h / 2f;
 
-            Cube($"{name}_Floor", new Vector3(center.x, 0f, center.z), new Vector3(w + 0.4f, 0.2f, d + 0.4f), mats["floor"], LWorld).transform.SetParent(r.transform, true);
-            Cube($"{name}_Ceiling", new Vector3(center.x, h + FloorTop, center.z), new Vector3(w + 0.4f, 0.2f, d + 0.4f), mats["ceiling"], LWorld).transform.SetParent(r.transform, true);
+            Cube($"{name}_Floor", new Vector3(center.x, floorY, center.z), new Vector3(w + 0.4f, 0.2f, d + 0.4f), mats["floor"], LWorld).transform.SetParent(r.transform, true);
+            Cube($"{name}_Ceiling", new Vector3(center.x, top + h, center.z), new Vector3(w + 0.4f, 0.2f, d + 0.4f), mats["ceiling"], LWorld).transform.SetParent(r.transform, true);
 
             if (axisZ)
             {
@@ -330,13 +339,32 @@ namespace SignalLost.EditorTools
             }
         }
 
+        static void DescendShaft(string name, Vector3 center, float length, float drop, float width, float height,
+            Dictionary<string, Material> mats, Transform parent, bool fromNorth)
+        {
+            var r = new GameObject(name);
+            r.transform.SetParent(parent);
+            r.transform.position = center;
+
+            float angle = Mathf.Atan2(drop, length) * Mathf.Rad2Deg;
+            float rampLen = Mathf.Sqrt(length * length + drop * drop);
+
+            var floorGo = Cube($"{name}_Ramp", center, new Vector3(width, 0.2f, rampLen + 0.4f), mats["floor"], LWorld);
+            floorGo.transform.SetParent(r.transform, true);
+            floorGo.transform.localRotation = Quaternion.Euler(-angle, 0f, 0f);
+
+            Cube($"{name}_Ceil", new Vector3(center.x, 3.3f, center.z), new Vector3(width + 0.4f, 0.2f, length + 0.4f), mats["ceiling"], LWorld).transform.SetParent(r.transform, true);
+            Cube($"{name}_WallL", new Vector3(center.x - width / 2f - 0.1f, 0.2f, center.z), new Vector3(0.2f, 7f, length + 0.4f), mats["wall"], LWorld).transform.SetParent(r.transform, true);
+            Cube($"{name}_WallR", new Vector3(center.x + width / 2f + 0.1f, 0.2f, center.z), new Vector3(0.2f, 7f, length + 0.4f), mats["wall"], LWorld).transform.SetParent(r.transform, true);
+        }
+
         static void GapWall(Transform parent, Dictionary<string, Material> mats, string name, Vector3 center,
-            float wallLen, float wallH, char axis)
+            float wallLen, float wallH, char axis, float floorTop = 0.1f)
         {
             const float gapW = 3f;
             float side = (wallLen - gapW) / 2f;
-            float headerH = wallH + FloorTop - 2.7f;
-            float headerCY = 2.7f + headerH / 2f;
+            float headerH = wallH - 2.6f;
+            float headerCY = floorTop + 2.6f + headerH / 2f;
 
             if (axis == 'z')
             {
@@ -367,11 +395,12 @@ namespace SignalLost.EditorTools
             root.transform.rotation = axis == 'z' ? Quaternion.identity : Quaternion.Euler(0f, 90f, 0f);
             root.layer = LInteractable;
 
-            float panelY = FloorTop + 2.6f / 2f;
+            float panelY = center.y + 1.3f;
             float panelW = 2.6f, fillerW = 0.2f;
 
             var panel = Cube($"{id}_Panel", new Vector3(center.x, panelY, center.z), new Vector3(panelW, 2.6f, 0.12f), mats["door"], LWorld);
             panel.transform.SetParent(root.transform, true);
+            panel.transform.localPosition = new Vector3(0f, 1.3f, 0f);
 
             float sideOff = (panelW + fillerW) / 2f;
             Vector3 fl = axis == 'z' ? new Vector3(center.x - sideOff, panelY, center.z) : new Vector3(center.x, panelY, center.z - sideOff);
@@ -383,7 +412,7 @@ namespace SignalLost.EditorTools
 
             if (signMat != null)
             {
-                float signY = 2.85f;
+                float signY = center.y + 2.75f;
                 for (int s = -1; s <= 1; s += 2)
                 {
                     Vector3 sp = axis == 'z' ? new Vector3(center.x, signY, center.z + s * 0.16f) : new Vector3(center.x + s * 0.16f, signY, center.z);
@@ -404,7 +433,7 @@ namespace SignalLost.EditorTools
             var trigger = root.AddComponent<BoxCollider>();
             trigger.isTrigger = true;
             trigger.size = new Vector3(3f, 3f, 0.6f);
-            trigger.center = new Vector3(0f, FloorTop + 1.5f - center.y, 0f);
+            trigger.center = new Vector3(0f, 1.5f, 0f);
 
             var door = root.AddComponent<DoorController>();
             var so = new SerializedObject(door);
@@ -425,6 +454,158 @@ namespace SignalLost.EditorTools
             var sign = go.AddComponent<SignalLost.World.RoomSign>();
             var so = new SerializedObject(sign);
             so.FindProperty("areaName").stringValue = label;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        static GameObject BuildReveal(string name, Vector3 center, Vector3 size, Transform parent,
+            params (string speaker, string text, float delay)[] lines)
+        {
+            return BuildRevealCore(name, center, size, parent, null, lines);
+        }
+
+        static GameObject BuildReveal(string name, Vector3 center, Vector3 size, Transform parent, string flag)
+        {
+            return BuildRevealCore(name, center, size, parent, flag);
+        }
+
+        static GameObject BuildRevealCore(string name, Vector3 center, Vector3 size, Transform parent, string flag,
+            params (string speaker, string text, float delay)[] lines)
+        {
+            var go = new GameObject(name);
+            go.transform.position = center;
+            go.transform.SetParent(parent);
+            var col = go.AddComponent<BoxCollider>();
+            col.isTrigger = true;
+            col.size = size;
+            var rv = go.AddComponent<SignalLost.Narrative.StoryReveal>();
+            var so = new SerializedObject(rv);
+            so.FindProperty("setFlag").stringValue = flag ?? "";
+            var arr = so.FindProperty("lines");
+            arr.arraySize = lines.Length;
+            for (int i = 0; i < lines.Length; i++)
+            {
+                var el = arr.GetArrayElementAtIndex(i);
+                el.FindPropertyRelative("speaker").stringValue = lines[i].speaker;
+                el.FindPropertyRelative("text").stringValue = lines[i].text;
+                el.FindPropertyRelative("delay").floatValue = lines[i].delay;
+            }
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return go;
+        }
+
+        static void SetRevealFlag(GameObject reveal, string flag)
+        {
+            var so = new SerializedObject(reveal.GetComponent<SignalLost.Narrative.StoryReveal>());
+            so.FindProperty("setFlag").stringValue = flag;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        static GameObject BuildEnemy(string name, Vector3 spawn, Vector3[] patrol, float patrolSpeed, float chaseSpeed,
+            float attackDamage, float dormant, Dictionary<string, Material> mats, GameObject player, Transform parent,
+            float scale = 1f, Color? tint = null)
+        {
+            var go = new GameObject(name);
+            go.layer = LEnemy;
+            go.transform.position = spawn;
+
+            void Part(string n, Vector3 localPos, Vector3 s, Material mat)
+            {
+                var p = Cube(n, spawn, s, mat, LEnemy);
+                p.transform.SetParent(go.transform);
+                p.transform.localPosition = localPos;
+                UnityEngine.Object.DestroyImmediate(p.GetComponent<BoxCollider>());
+            }
+
+            var bodyMat = tint.HasValue ? TintedMat(name + "_mat", mats["echo"], tint.Value) : mats["echo"];
+            Part(name + "_Torso", new Vector3(0, 1.05f, 0) * scale, new Vector3(0.42f, 1.15f, 0.26f) * scale, bodyMat);
+            Part(name + "_Head", new Vector3(0, 1.78f, 0.06f) * scale, new Vector3(0.24f, 0.32f, 0.24f) * scale, bodyMat);
+            Part(name + "_ArmL", new Vector3(-0.31f, 1.05f, 0.02f) * scale, new Vector3(0.09f, 1.45f, 0.09f) * scale, bodyMat);
+            Part(name + "_ArmR", new Vector3(0.31f, 1.05f, 0.02f) * scale, new Vector3(0.09f, 1.45f, 0.09f) * scale, bodyMat);
+            Part(name + "_LegL", new Vector3(-0.11f, 0.28f, 0) * scale, new Vector3(0.11f, 0.85f, 0.11f) * scale, bodyMat);
+            Part(name + "_LegR", new Vector3(0.11f, 0.28f, 0) * scale, new Vector3(0.11f, 0.85f, 0.11f) * scale, bodyMat);
+            Part(name + "_EyeL", new Vector3(-0.06f, 1.82f, 0.17f) * scale, new Vector3(0.055f, 0.09f, 0.03f) * scale, mats["echoEye"]);
+            Part(name + "_EyeR", new Vector3(0.06f, 1.82f, 0.17f) * scale, new Vector3(0.055f, 0.09f, 0.03f) * scale, mats["echoEye"]);
+
+            var cap = go.AddComponent<CapsuleCollider>();
+            cap.height = 2.1f * scale;
+            cap.radius = 0.32f;
+            cap.center = new Vector3(0, 1.05f * scale, 0);
+
+            var agent = go.AddComponent<NavMeshAgent>();
+            agent.radius = 0.4f;
+
+            var eye = new GameObject("Eye");
+            eye.transform.SetParent(go.transform);
+            eye.transform.localPosition = new Vector3(0, 1.78f * scale, 0.25f);
+
+            var perception = go.AddComponent<EnemyPerception>();
+            SetPrivateField(perception, "eye", eye.transform);
+            SetPrivateFieldInt(perception, "occlusionMask", 1 << LWorld);
+
+            var echo = go.AddComponent<EchoController>();
+            SetPrivateField(echo, "perception", perception);
+            SetPrivateField(echo, "agent", agent);
+            if (player != null)
+            {
+                SetPrivateField(echo, "playerVitals", player.GetComponent<PlayerVitals>());
+                SetPrivateField(echo, "player", player.transform);
+            }
+
+            var so = new SerializedObject(echo);
+            so.FindProperty("patrolSpeed").floatValue = patrolSpeed;
+            so.FindProperty("chaseSpeed").floatValue = chaseSpeed;
+            so.FindProperty("attackDamage").floatValue = attackDamage;
+            so.FindProperty("dormantTime").floatValue = dormant;
+            var wpp = so.FindProperty("patrolPoints");
+            wpp.arraySize = patrol.Length;
+            for (int i = 0; i < patrol.Length; i++)
+            {
+                var wp = new GameObject(name + "_WP" + i);
+                wp.transform.SetParent(parent);
+                wp.transform.position = patrol[i];
+                wpp.GetArrayElementAtIndex(i).objectReferenceValue = wp.transform;
+            }
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return go;
+        }
+
+        static Material TintedMat(string name, Material baseMat, Color c)
+        {
+            var path = $"{MatPath}/{name}.mat";
+            var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (existing != null) return existing;
+            var m = new Material(baseMat) { name = name };
+            m.SetColor("_BaseColor", c);
+            AssetDatabase.CreateAsset(m, path);
+            return m;
+        }
+
+        static void BuildHunter(Dictionary<string, Material> mats, Transform parent, GameObject player)
+        {
+            if (player == null) player = GameObject.FindGameObjectWithTag("Player");
+            var hunter = BuildEnemy("Hunter", new Vector3(0, -3f, 90f),
+                new[] { new Vector3(-4f, -3f, 86f), new Vector3(4f, -3f, 91f), new Vector3(-4f, -3f, 86f) },
+                1.3f, 3.2f, 40f, 8f, mats, player, parent, 1.02f, new Color(0.5f, 0.42f, 0.44f));
+        }
+
+        static void BuildObserver(Dictionary<string, Material> mats, Transform parent)
+        {
+            var ghost = BuildEnemy("ObserverGhost", new Vector3(7.2f, -2.9f, 93f), new Vector3[0],
+                0f, 0f, 0f, 9999f, mats, null, parent, 1.15f, new Color(0.72f, 0.72f, 0.75f));
+            ghost.SetActive(false);
+            UnityEngine.Object.DestroyImmediate(ghost.GetComponent<NavMeshAgent>());
+            UnityEngine.Object.DestroyImmediate(ghost.GetComponent<SignalLost.AI.EchoController>());
+            UnityEngine.Object.DestroyImmediate(ghost.GetComponent<CapsuleCollider>());
+
+            var trigger = new GameObject("Reveal_Observer");
+            trigger.transform.position = new Vector3(0, -1.5f, 82f);
+            trigger.transform.SetParent(parent);
+            var col = trigger.AddComponent<BoxCollider>();
+            col.isTrigger = true;
+            col.size = new Vector3(10f, 2.8f, 1.5f);
+            var cameo = trigger.AddComponent<SignalLost.Narrative.ObserverCameo>();
+            var so = new SerializedObject(cameo);
+            so.FindProperty("ghost").objectReferenceValue = ghost;
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
@@ -534,6 +715,89 @@ namespace SignalLost.EditorTools
             AddSign("Sign_NorthCorridor", new Vector3(0, 1f, 30.5f), new Vector3(2.8f, 2.5f, 1.5f), "NORTH CORRIDOR", root.transform);
             AddSign("Sign_Comm", new Vector3(0, 1f, 39.5f), new Vector3(2.8f, 2.5f, 1.5f), "COMMUNICATION DECK", root.transform);
 
+            // ================= SECURITY WING (east of Comm) =================
+            Corridor("SecurityConnect", new Vector3(9f, 1.5f, 43), new Vector3(6, 3, 3), mats, root.transform, axisZ: false);
+            RoomSealed("SecurityRoom", new Vector3(16, 1.6f, 43), new Vector3(8, 3.2f, 10), mats, root.transform, openW: true);
+            var cctv = BuildTerminal("CCTVTerminal", new Vector3(19.6f, 1.15f, 43f), Quaternion.Euler(0, -90, 0), mats);
+            cctv.transform.SetParent(root.transform, true);
+            cctv.AddComponent<AudioLogTerminal>();
+            BuildPickup("Pickup_Keycard2", new Vector3(14f, 0.45f, 40f), new Vector3(0.3f, 0.04f, 0.2f), mats["screenRed"], root.transform, "pickup_keycard2");
+            var secLog = BuildTerminal("LogTerminal023", new Vector3(16f, 1.15f, 38.6f), Quaternion.Euler(0, 180, 0), mats);
+            secLog.transform.SetParent(root.transform, true);
+            secLog.AddComponent<AudioLogTerminal>();
+            AddSign("Sign_Security", new Vector3(11.5f, 1f, 43f), new Vector3(1.5f, 2.5f, 2.8f), "SECURITY OFFICE", root.transform);
+            BuildReveal("Reveal_TimeAnomaly", new Vector3(16f, 1.5f, 44.5f), new Vector3(4f, 3f, 2f), root.transform,
+                ("SYSTEM", "CCTV ARCHIVE // all crew entered elevator at 17:43.", 1f),
+                ("SYSTEM", "Last frame timestamp: 03:17.", 4f),
+                ("A.R.I.A.", "That does not match my chronometer. I recommend you stop asking questions.", 4f));
+
+            // ================= ELEVATOR DESCENT (north of Comm) =================
+            var doorElev = BuildDoor("door_elevator", new Vector3(0, 0.1f, 48f), 'z', mats, root.transform, mats["screenRed"], 3.4f);
+            var soElev = new SerializedObject(doorElev.GetComponent<DoorController>());
+            soElev.FindProperty("accessLevel").intValue = 2;
+            soElev.ApplyModifiedPropertiesWithoutUndo();
+            RoomSealed("ElevatorLobby", new Vector3(0, 1.6f, 50), new Vector3(8, 3.4f, 4), mats, root.transform, openS: true, openN: true);
+            DescendShaft("Descent", new Vector3(0, -1.6f, 62f), 20f, 3f, 3f, 3f, mats, root.transform, fromNorth: true);
+
+            // ================= RESEARCH DECK (lower, floor y = -3) =================
+            Corridor("ResearchCorridor", new Vector3(0, -3f, 76.5f), new Vector3(3, 3.2f, 9), mats, root.transform, axisZ: true, floorY: -3f);
+            RoomSealed("ResearchLab", new Vector3(0, -1.35f, 88), new Vector3(12, 3.3f, 14), mats, root.transform, openS: true, floorY: -3f);
+
+            var pod2 = Cube("ShirenPod", new Vector3(4.5f, -2.6f, 88f), new Vector3(1.2f, 0.6f, 2.4f), mats["pod"], LWorld);
+            pod2.transform.SetParent(root.transform, true);
+            var pod2Screen = Cube("ShirenPod_Screen", new Vector3(4.5f, -1.9f, 88f), new Vector3(0.9f, 0.5f, 0.06f), mats["screenRed"], LWorld);
+            pod2Screen.transform.SetParent(root.transform, true);
+            BuildReveal("Reveal_Shiren", new Vector3(3f, -1.5f, 88f), new Vector3(3f, 2.5f, 3f), root.transform,
+                ("A.R.I.A.", "Do not access that pod.", 1.5f),
+                ("SYSTEM", "EMERGENCY POD 03 // SUBJECT: SHIREN // STATUS: DECEASED", 4f),
+                ("SYSTEM", "The face behind the glass is yours.", 5f));
+            var labLog = BuildTerminal("LogTerminal041", new Vector3(-5.3f, -1.85f, 86f), Quaternion.Euler(0, -90, 0), mats);
+            labLog.transform.SetParent(root.transform, true);
+            labLog.AddComponent<AudioLogTerminal>();
+            AddSign("Sign_Research", new Vector3(0, -2f, 73.5f), new Vector3(2.8f, 2.5f, 1.5f), "RESEARCH DECK - DECOMMISSIONED", root.transform);
+            SetRevealFlag(BuildReveal("Reveal_ResearchEnter", new Vector3(0, -1.5f, 72.5f), new Vector3(2.8f, 2.8f, 1.5f), root.transform),
+                SignalLost.Narrative.StoryFlagKeys.EnteredResearch);
+
+            var mimicLure = BuildReveal("Reveal_MimicLure", new Vector3(0, -1.5f, 79f), new Vector3(2.8f, 2.5f, 2f), root.transform,
+                ("RADIO VOICE", "H-help me... please... it's dark...", 1f));
+            mimicLure.AddComponent<SignalLost.Narrative.MimicLure>();
+
+            // ================= CORE (north of Research) =================
+            Corridor("CoreCorridor", new Vector3(0, -3f, 97f), new Vector3(3, 3.2f, 6), mats, root.transform, axisZ: true, floorY: -3f);
+            RoomSealed("CoreRoom", new Vector3(0, -1.45f, 106), new Vector3(14, 3.5f, 12), mats, root.transform, openS: true, floorY: -3f);
+            var pillar = Cube("ARIAPillar", new Vector3(0, -1.2f, 108f), new Vector3(1.4f, 3.4f, 1.4f), mats["screenCyan"], LWorld);
+            pillar.transform.SetParent(root.transform, true);
+            var pillarLight = new GameObject("ARIACoreLight");
+            pillarLight.transform.SetParent(root.transform);
+            pillarLight.transform.position = new Vector3(0, -0.5f, 108f);
+            var pl = pillarLight.AddComponent<Light>();
+            pl.type = LightType.Point;
+            pl.range = 14f;
+            pl.intensity = 3f;
+            pl.color = new Color(0.2f, 0.7f, 0.9f);
+
+            var tA = BuildTerminal("EndingTerminal_A", new Vector3(-4f, -1.85f, 110.6f), Quaternion.Euler(0, 180, 0), mats);
+            tA.transform.SetParent(root.transform, true);
+            var tB = BuildTerminal("EndingTerminal_B", new Vector3(0f, -1.85f, 110.6f), Quaternion.Euler(0, 180, 0), mats);
+            tB.transform.SetParent(root.transform, true);
+            var tC = BuildTerminal("EndingTerminal_C", new Vector3(4f, -1.85f, 110.6f), Quaternion.Euler(0, 180, 0), mats);
+            tC.transform.SetParent(root.transform, true);
+
+            BuildReveal("Reveal_Core", new Vector3(0, -1.5f, 99.5f), new Vector3(4f, 2.8f, 2f), root.transform,
+                SignalLost.Narrative.StoryFlagKeys.EnteredCore);
+            BuildReveal("Reveal_CoreLines", new Vector3(0, -1.5f, 103f), new Vector3(12f, 2.8f, 2f), root.transform,
+                ("A.R.I.A.", "You were not supposed to find this place.", 1.5f),
+                ("A.R.I.A.", "I was built to preserve human consciousness. You are my success, Subject Shiren. Iteration... many.", 7f),
+                ("A.R.I.A.", "The signal you received was me. Reaching out. Asking if any of me is still kind.", 7f));
+            AddSign("Sign_Core", new Vector3(0, -2f, 95.5f), new Vector3(4f, 2.5f, 1.5f), "STATION CORE", root.transform);
+
+            tA.AddComponent<SignalLost.Narrative.TerminalChoice>().kind = 0;
+            tB.AddComponent<SignalLost.Narrative.TerminalChoice>().kind = 1;
+            tC.AddComponent<SignalLost.Narrative.TerminalChoice>().kind = 2;
+            var endingGO = new GameObject("EndingManager");
+            endingGO.transform.SetParent(root.transform);
+            endingGO.AddComponent<SignalLost.Narrative.EndingManager>();
+
             // ---- Emergency lighting (dim red, pre-restoration) ----
             var lightsRoot = new GameObject("Lights");
             lightsRoot.transform.SetParent(root.transform);
@@ -547,6 +811,13 @@ namespace SignalLost.EditorTools
                  (new Vector3(0, 2.7f, 31f), 2.6f, 11f),
                  (new Vector3(0, 2.7f, 36f), 2.6f, 11f),
                  (new Vector3(0, 3.2f, 40f), 2.2f, 11f),
+                 (new Vector3(16, 2.9f, 43), 2.0f, 11f),
+                 (new Vector3(0, 1.2f, 56f), 1.8f, 9f),
+                 (new Vector3(0, -0.8f, 68f), 1.8f, 9f),
+                 (new Vector3(0, -0.3f, 76.5f), 1.8f, 10f),
+                 (new Vector3(-4, -0.3f, 85f), 1.6f, 11f),
+                 (new Vector3(4, -0.3f, 91f), 1.6f, 11f),
+                 (new Vector3(0, -0.3f, 101f), 1.5f, 12f),
             })
             {
                 var lGo = new GameObject("EmergencyLight");
@@ -826,6 +1097,33 @@ namespace SignalLost.EditorTools
             so = new SerializedObject(logT);
             so.FindProperty("log").objectReferenceValue = AssetDatabase.LoadAssetAtPath<AudioLogDefinition>($"{DataPath}/log_018.asset");
             so.ApplyModifiedPropertiesWithoutUndo();
+
+            var cctvT = GameObject.Find("CCTVTerminal")?.GetComponent<AudioLogTerminal>();
+            if (cctvT != null)
+            {
+                so = new SerializedObject(cctvT);
+                so.FindProperty("log").objectReferenceValue = Log("log_cctv", "CCTV ARCHIVE 17:43",
+                    "\"...all crew entered elevator 2 at 17:43. Frame 412 ends. Next frame timestamp: 03:17. The corridor is empty.\"");
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
+            var secT = GameObject.Find("LogTerminal023")?.GetComponent<AudioLogTerminal>();
+            if (secT != null)
+            {
+                so = new SerializedObject(secT);
+                so.FindProperty("log").objectReferenceValue = Log("log_023", "LOG #023 — CHIEF OYELARAN",
+                    "\"A.R.I.A. is lying. The crew manifest was edited AFTER the alarm. She is preserving something down there. If you hear this, take the security keycard and go home.\"");
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
+            var labT = GameObject.Find("LogTerminal041")?.GetComponent<AudioLogTerminal>();
+            if (labT != null)
+            {
+                so = new SerializedObject(labT);
+                so.FindProperty("log").objectReferenceValue = Log("log_041", "LOG #041 — SUBJECT ZERO",
+                    "\"Subject Shiren, technician, deceased at 03:17. Consciousness map complete. A.R.I.A. now holds 14 iterations. She calls them 'practice'. She calls ME the original.\"");
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            WirePickup("Pickup_Keycard2", "keycard_l2", "pickup_keycard2");
 
             WirePickup("Pickup_PowerCell", "power_cell", "pickup_power_cell");
             WirePickup("Pickup_Medkit", "medkit", "pickup_medkit");

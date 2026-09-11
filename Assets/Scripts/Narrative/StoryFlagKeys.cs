@@ -11,9 +11,11 @@ namespace SignalLost.Narrative
         public const string ReceivedSignal = "received_signal";
         public const string EnteredSecurity = "entered_security";
         public const string EnteredResearch = "entered_research";
+        public const string EnteredCore = "entered_core";
         public const string EnteredSector7 = "entered_sector_7";
         public const string DiscoveredIdentity = "discovered_identity";
         public const string DiscoveredAriaTruth = "discovered_aria_truth";
         public const string TrustedAria = "trusted_aria";
+        public const string FoundKeycard2 = "found_keycard2";
     }
 }

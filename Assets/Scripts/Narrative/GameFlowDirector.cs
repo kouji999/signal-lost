@@ -17,6 +17,7 @@ namespace SignalLost.Narrative
             EventBus.Subscribe<GameOverEvent>(OnGameOver);
             EventBus.Subscribe<LifeSupportRestored>(OnLifeSupportRestored);
             EventBus.Subscribe<SliceCompleteEvent>(OnSliceComplete);
+            EventBus.Subscribe<StoryFlagChanged>(OnFlagChanged);
             StartCoroutine(StartSequence());
         }
 
@@ -25,6 +26,28 @@ namespace SignalLost.Narrative
             EventBus.Unsubscribe<GameOverEvent>(OnGameOver);
             EventBus.Unsubscribe<LifeSupportRestored>(OnLifeSupportRestored);
             EventBus.Unsubscribe<SliceCompleteEvent>(OnSliceComplete);
+            EventBus.Unsubscribe<StoryFlagChanged>(OnFlagChanged);
+        }
+
+        private void OnFlagChanged(StoryFlagChanged evt)
+        {
+            if (evt.Key == "pickup:pickup_keycard2" && evt.Value)
+            {
+                StoryFlagSystem.Set(StoryFlagKeys.FoundKeycard2);
+                EventBus.Publish(new SubtitleEvent("A.R.I.A.",
+                    "A level-2 keycard. The elevator north of the array leads to the research decks. I would prefer you stayed.", 7f));
+            }
+            else if (evt.Key == StoryFlagKeys.EnteredResearch && evt.Value)
+            {
+                ObjectiveSystem.Instance.AddObjective("obj_core", "Reach The Station Core",
+                    "The answer is at the bottom. The A.R.I.A. core lies beyond the laboratory.");
+                EventBus.Publish(new SubtitleEvent("A.R.I.A.", "You were not supposed to find this. Nothing down here is yours to see.", 6f));
+            }
+            else if (evt.Key == StoryFlagKeys.EnteredCore && evt.Value)
+            {
+                ObjectiveSystem.Instance.AddObjective("obj_choice", "Decide",
+                    "A.R.I.A. waits at the core. Three terminals. Three futures.");
+            }
         }
 
         private void Update()

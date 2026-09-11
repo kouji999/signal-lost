@@ -59,11 +59,10 @@ namespace SignalLost.Interaction
             EventBus.Publish(new SubtitleEvent("SYSTEM", "SIGNAL LOST", 3f));
 
             ObjectiveSystem.Instance.CompleteObjective("obj_communication");
-            ObjectiveSystem.Instance.AddObjective("obj_signal", "Identify The Signal",
-                "Someone is out there. Find the source of the transmission.");
+            ObjectiveSystem.Instance.AddObjective("obj_truth", "Investigate The Signal",
+                "The signal came from INSIDE the station. Find a LEVEL-2 keycard in the SECURITY office (east), then descend via the elevator.");
 
             if (commDoor != null) commDoor.SetOpen(true, broadcast: true);
-            EventBus.Publish(SliceCompleteEvent.Instance);
         }
     }
 }

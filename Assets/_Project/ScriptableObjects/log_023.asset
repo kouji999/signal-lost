@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5c86716b9fbbbc5428e043cc105b9b47, type: 3}
+  m_Name: log_023
+  m_EditorClassIdentifier: SignalLost::SignalLost.Narrative.AudioLogDefinition
+  logId: log_023
+  title: "LOG #023 \u2014 CHIEF OYELARAN"
+  content: '"A.R.I.A. is lying. The crew manifest was edited AFTER the alarm. She is preserving something down there. If you hear this, take the security keycard and go home."'
+  clip: {fileID: 0}
