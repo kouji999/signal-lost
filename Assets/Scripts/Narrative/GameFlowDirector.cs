@@ -9,6 +9,7 @@ namespace SignalLost.Narrative
     public class GameFlowDirector : MonoBehaviour
     {
         [SerializeField] private IntroScreen introScreen;
+        [SerializeField] private SignalLost.UI.TitleScreen titleScreen;
         [SerializeField] private float deathRestartDelay = 4f;
 
         private void Start()
@@ -58,7 +59,10 @@ namespace SignalLost.Narrative
 
         private IEnumerator StartSequence()
         {
-            GameManager.Instance.SetState(GameState.Intro);
+            GameManager.Instance.SetState(GameState.Title);
+            if (titleScreen != null)
+                yield return new WaitUntil(() => titleScreen.Completed || Time.realtimeSinceStartup > 600f);
+
             if (introScreen != null) yield return introScreen.Play();
             GameManager.Instance.SetState(GameState.Playing);
 

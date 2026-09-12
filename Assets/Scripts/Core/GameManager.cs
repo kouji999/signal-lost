@@ -4,6 +4,7 @@ namespace SignalLost.Core
 {
     public enum GameState
     {
+        Title,
         Intro,
         Playing,
         UiOpen,

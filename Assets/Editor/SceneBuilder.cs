@@ -38,6 +38,12 @@ namespace SignalLost.EditorTools
         static int LEnemy => LayerMask.NameToLayer("Enemy");
         static int LInteractable => LayerMask.NameToLayer("Interactable");
 
+        public static void BuildMainNoNav()
+        {
+            SkipNavBake = true;
+            BuildMain();
+        }
+
         [MenuItem("SignalLost/Build Main Scene")]
         public static void BuildMain()
         {
@@ -66,7 +72,7 @@ namespace SignalLost.EditorTools
             BuildHud();
 
             WireScene();
-            BakeNavMesh(level);
+            if (!SkipNavBake) BakeNavMesh(level);
 
             EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene(), ScenePath);
@@ -1174,16 +1180,29 @@ namespace SignalLost.EditorTools
             return null;
         }
 
+        public static bool SkipNavBake; // diagnostics switch
+
         static void BakeNavMesh(GameObject level)
         {
+            // Validate bake works (editor, throwaway), then leave a clean un-baked surface in the
+            // scene: the player bakes at startup (autoBuildEnabled). Keeps binary navmesh OUT of
+            // the scene file — embedded NavMeshData blobs corrupt level0 in Unity 6.6 builds.
+            var testSurface = level.AddComponent<NavMeshSurface>();
+            testSurface.collectObjects = CollectObjects.All;
+            testSurface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
+            testSurface.layerMask = 1 << LWorld;
             RaiseDoorPanels();
-            var surface = level.AddComponent<NavMeshSurface>();
-            surface.collectObjects = CollectObjects.All;
-            surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
-            surface.layerMask = 1 << LWorld;
-            surface.BuildNavMesh();
+            testSurface.BuildNavMesh();
             LowerDoorPanels();
-            Debug.Log("[SceneBuilder] NAVMESH_BAKED");
+            UnityEngine.Object.DestroyImmediate(testSurface);
+
+            var runtime = level.AddComponent<NavMeshSurface>();
+            runtime.collectObjects = CollectObjects.All;
+            runtime.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
+            runtime.layerMask = 1 << LWorld;
+            level.AddComponent<SignalLost.World.NavMeshRuntimeBaker>();
+
+            Debug.Log("[SceneBuilder] NAVMESH_RUNTIME_BAKE_READY");
         }
 
         static readonly Dictionary<DoorController, Vector3> RaisedPanels = new();
@@ -1291,6 +1310,56 @@ namespace SignalLost.EditorTools
             pauseHint.color = new Color(0.75f, 0.78f, 0.82f);
             pauseHint.text = "[R] RESUME\n[T] RESTART CHECKPOINT\n[Q] QUIT GAME";
 
+            // ---- Title screen ----
+            var titleRoot = new GameObject("TitlePanel");
+            titleRoot.transform.SetParent(canvasGo.transform);
+            var titleImg = titleRoot.AddComponent<Image>();
+            titleImg.sprite = white;
+            titleImg.color = new Color(0.005f, 0.006f, 0.01f, 1f);
+            Stretch(titleRoot.GetComponent<RectTransform>());
+            var titleGroup = titleRoot.AddComponent<CanvasGroup>();
+            var titleMain = CreateText(titleRoot.transform, "Title", font, new Vector2(0.5f, 0.62f), Vector2.zero, new Vector2(1100, 110), 72, TextAnchor.MiddleCenter);
+            titleMain.text = "SIGNAL LOST";
+            titleMain.color = new Color(0.92f, 0.93f, 0.95f);
+            var titleSub = CreateText(titleRoot.transform, "Sub", font, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1100, 40), 20, TextAnchor.MiddleCenter);
+            titleSub.text = "FIRST-PERSON SURVIVAL  //  PSYCHOLOGICAL HORROR  //  KEPLER-9 STATION";
+            titleSub.color = new Color(0.5f, 0.55f, 0.6f);
+            var titleHint = CreateText(titleRoot.transform, "Hint", font, new Vector2(0.5f, 0.34f), Vector2.zero, new Vector2(1100, 60), 22, TextAnchor.MiddleCenter);
+            titleHint.text = "[ENTER] BEGIN        [S] SETTINGS        [Q] QUIT";
+            titleHint.color = new Color(0.85f, 0.3f, 0.25f);
+
+            // ---- Settings panel (child of title) ----
+            var setRoot = new GameObject("SettingsPanel");
+            setRoot.transform.SetParent(titleRoot.transform);
+            var setImg = setRoot.AddComponent<Image>();
+            setImg.sprite = white;
+            setImg.color = new Color(0.01f, 0.012f, 0.02f, 0.96f);
+            Stretch(setRoot.GetComponent<RectTransform>());
+            var setGroup = setRoot.AddComponent<CanvasGroup>();
+            setGroup.alpha = 0f;
+            var setHead = CreateText(setRoot.transform, "Head", font, new Vector2(0.5f, 0.8f), Vector2.zero, new Vector2(800, 40), 30, TextAnchor.MiddleCenter);
+            setHead.text = "SETTINGS";
+            setHead.color = Color.white;
+            var sensLbl = CreateText(setRoot.transform, "SensLbl", font, new Vector2(0.5f, 0.62f), Vector2.zero, new Vector2(800, 26), 20, TextAnchor.MiddleCenter);
+            sensLbl.color = new Color(0.7f, 0.74f, 0.8f);
+            var sensSlider = CreateSlider(setRoot.transform, "SensSlider", new Vector2(0.5f, 0.54f), white);
+            var volLbl = CreateText(setRoot.transform, "VolLbl", font, new Vector2(0.5f, 0.4f), Vector2.zero, new Vector2(800, 26), 20, TextAnchor.MiddleCenter);
+            volLbl.color = new Color(0.7f, 0.74f, 0.8f);
+            var volSlider = CreateSlider(setRoot.transform, "VolSlider", new Vector2(0.5f, 0.32f), white);
+            var setBack = CreateText(setRoot.transform, "Back", font, new Vector2(0.5f, 0.18f), Vector2.zero, new Vector2(800, 30), 18, TextAnchor.MiddleCenter);
+            setBack.text = "[S] BACK";
+            setBack.color = new Color(0.5f, 0.55f, 0.6f);
+
+            var title = canvasGo.AddComponent<SignalLost.UI.TitleScreen>();
+            var soTitle = new SerializedObject(title);
+            soTitle.FindProperty("root").objectReferenceValue = titleGroup;
+            soTitle.FindProperty("settingsPanel").objectReferenceValue = setGroup;
+            soTitle.FindProperty("sensSlider").objectReferenceValue = sensSlider;
+            soTitle.FindProperty("volSlider").objectReferenceValue = volSlider;
+            soTitle.FindProperty("sensLabel").objectReferenceValue = sensLbl;
+            soTitle.FindProperty("volLabel").objectReferenceValue = volLbl;
+            soTitle.ApplyModifiedPropertiesWithoutUndo();
+
             var eventSystem = new GameObject("EventSystem");
             eventSystem.AddComponent<EventSystem>();
             eventSystem.AddComponent<StandaloneInputModule>();
@@ -1318,6 +1387,7 @@ namespace SignalLost.EditorTools
 
             var flow = GameObject.Find("GameFlow");
             SetPrivateField(flow.GetComponent<GameFlowDirector>(), "introScreen", intro);
+            SetPrivateField(flow.GetComponent<GameFlowDirector>(), "titleScreen", title);
 
             return canvasGo;
         }
@@ -1395,6 +1465,42 @@ namespace SignalLost.EditorTools
             lbl.text = label;
 
             return fill;
+        }
+
+        static Slider CreateSlider(Transform parent, string name, Vector2 anchor, Sprite white)
+        {
+            var root = new GameObject(name);
+            root.transform.SetParent(parent, false);
+            var rt = root.AddComponent<RectTransform>();
+            rt.anchorMin = anchor; rt.anchorMax = anchor;
+            rt.anchoredPosition = Vector2.zero; rt.sizeDelta = new Vector2(480, 26);
+
+            var bgGo = new GameObject("Background");
+            bgGo.transform.SetParent(root.transform, false);
+            var bg = bgGo.AddComponent<Image>(); bg.sprite = white; bg.color = new Color(0.12f, 0.13f, 0.16f);
+            var bgRt = bgGo.GetComponent<RectTransform>();
+            bgRt.anchorMin = Vector2.zero; bgRt.anchorMax = Vector2.one; bgRt.offsetMin = bgRt.offsetMax = Vector2.zero;
+
+            var fillGo = new GameObject("Fill");
+            fillGo.transform.SetParent(root.transform, false);
+            var fill = fillGo.AddComponent<Image>(); fill.sprite = white; fill.color = new Color(0.85f, 0.3f, 0.25f);
+            var fillRt = fillGo.GetComponent<RectTransform>();
+            fillRt.anchorMin = Vector2.zero; fillRt.anchorMax = Vector2.one;
+            fillRt.offsetMin = new Vector2(6, 6); fillRt.offsetMax = new Vector2(-6, -6);
+
+            var handleGo = new GameObject("Handle");
+            handleGo.transform.SetParent(root.transform, false);
+            var hImg = handleGo.AddComponent<Image>(); hImg.sprite = white; hImg.color = Color.white;
+            var hRt = handleGo.GetComponent<RectTransform>();
+            hRt.sizeDelta = new Vector2(14, 30);
+
+            var slider = root.AddComponent<Slider>();
+            slider.fillRect = fillRt;
+            slider.handleRect = hRt;
+            slider.targetGraphic = hImg;
+            slider.wholeNumbers = false;
+            slider.minValue = 0f; slider.maxValue = 1f; slider.value = 0.3f;
+            return slider;
         }
 
         static void Stretch(RectTransform rt)

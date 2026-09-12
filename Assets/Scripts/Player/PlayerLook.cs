@@ -14,6 +14,7 @@ namespace SignalLost.Player
 
         private void Start()
         {
+            sensitivity = SignalLost.UI.GameSettings.Sensitivity;
             var e = transform.eulerAngles;
             _yaw = e.y;
             _pitch = cameraHolder != null ? cameraHolder.localEulerAngles.x : 0f;
