@@ -43,7 +43,10 @@ namespace SignalLost.EditorTools
             Check("ending terminals", GameObject.Find("EndingTerminal_A") != null && GameObject.Find("EndingTerminal_B") != null && GameObject.Find("EndingTerminal_C") != null);
             Check("ending manager", UnityEngine.Object.FindAnyObjectByType<SignalLost.Narrative.EndingManager>() != null);
             Check("hunter", GameObject.Find("Hunter") != null);
-            Check("observer ghost", GameObject.Find("ObserverGhost") != null);
+            var ghostFound = false;
+            foreach (var x in UnityEngine.Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                if (x != null && x.name == "ObserverGhost") { ghostFound = true; break; }
+            Check("observer ghost", ghostFound);
             Check("door_hub", GameObject.Find("door_hub") != null);
             Check("door_pod", GameObject.Find("door_pod") != null);
             Check("door_hub", GameObject.Find("door_hub") != null);

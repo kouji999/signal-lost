@@ -886,7 +886,7 @@ namespace SignalLost.EditorTools
             var go = new GameObject("Player");
             go.tag = "Player";
             go.layer = LPlayer;
-            go.transform.position = new Vector3(0, 1.0f, -1.5f);
+            go.transform.position = new Vector3(0, 1.05f, -0.4f);
 
             var cc = go.AddComponent<CharacterController>();
             cc.height = 1.8f;
