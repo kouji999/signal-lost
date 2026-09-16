@@ -177,6 +177,23 @@ namespace SignalLost.Tests
         }
 
         [UnityTest]
+        public IEnumerator EndingTerminals_TriggerEndingFlow()
+        {
+            var choiceA = GameObject.Find("EndingTerminal_A").GetComponent<SignalLost.Narrative.TerminalChoice>();
+            Assert.That(choiceA, Is.Not.Null);
+            Assert.That(choiceA.Prompt, Does.Contain("SHUT DOWN"));
+
+            var interactor = new GameObject("test-interactor");
+            choiceA.Interact(interactor);
+            yield return null;
+
+            Assert.That(StoryFlagSystem.IsSet("ending_0"), Is.True);
+            Assert.That(GameManager.Instance.State, Is.EqualTo(GameState.Ending));
+            Object.Destroy(interactor);
+            GameManager.Instance.SetState(GameState.Playing);
+        }
+
+        [UnityTest]
         public IEnumerator Flashlight_Toggle_DrainsBattery()
         {
             _player = GameObject.FindGameObjectWithTag("Player");
