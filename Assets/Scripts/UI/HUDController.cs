@@ -25,6 +25,13 @@ namespace SignalLost.UI
         [Header("Damage vignette")]
         [SerializeField] private CanvasGroup damageVignette;
 
+        [Header("Scanner readout")]
+        [SerializeField] private Text scannerText;
+
+        [Header("Chapter card")]
+        [SerializeField] private CanvasGroup chapterGroup;
+        [SerializeField] private Text chapterText;
+
         private Player.PlayerVitals _vitals;
         private Coroutine _subtitleRoutine;
         private Coroutine _vignetteRoutine;
@@ -39,6 +46,8 @@ namespace SignalLost.UI
             EventBus.Subscribe<ObjectiveChanged>(OnObjectiveChanged);
             EventBus.Subscribe<SubtitleEvent>(OnSubtitle);
             EventBus.Subscribe<PlayerDamaged>(OnDamaged);
+            EventBus.Subscribe<ScannerResult>(OnScanner);
+            EventBus.Subscribe<ChapterCardRequested>(OnChapterCard);
 
             RefreshObjectives();
             SetPrompt(null);
@@ -51,6 +60,36 @@ namespace SignalLost.UI
             EventBus.Unsubscribe<ObjectiveChanged>(OnObjectiveChanged);
             EventBus.Unsubscribe<SubtitleEvent>(OnSubtitle);
             EventBus.Unsubscribe<PlayerDamaged>(OnDamaged);
+            EventBus.Unsubscribe<ScannerResult>(OnScanner);
+            EventBus.Unsubscribe<ChapterCardRequested>(OnChapterCard);
+        }
+
+        private void OnScanner(ScannerResult evt)
+        {
+            if (scannerText == null) return;
+            scannerText.text = evt.Lines ?? string.Empty;
+            scannerText.enabled = !string.IsNullOrEmpty(evt.Lines);
+        }
+
+        private Coroutine _chapterRoutine;
+
+        private void OnChapterCard(ChapterCardRequested evt)
+        {
+            if (chapterText == null || chapterGroup == null) return;
+            chapterText.text = evt.Chapter + "\n" + evt.Title;
+            if (_chapterRoutine != null) StopCoroutine(_chapterRoutine);
+            _chapterRoutine = StartCoroutine(ShowCard());
+        }
+
+        private IEnumerator ShowCard()
+        {
+            chapterGroup.alpha = 0f;
+            float t = 0f;
+            while (t < 0.8f) { t += Time.unscaledDeltaTime; chapterGroup.alpha = Mathf.Clamp01(t / 0.8f); yield return null; }
+            yield return new WaitForSecondsRealtime(3.2f);
+            t = 0f;
+            while (t < 1.2f) { t += Time.unscaledDeltaTime; chapterGroup.alpha = 1f - Mathf.Clamp01(t / 1.2f); yield return null; }
+            chapterGroup.alpha = 0f;
         }
 
         private void OnDamaged(PlayerDamaged evt)

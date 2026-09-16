@@ -75,20 +75,23 @@ namespace SignalLost.UI
             if (content == null || _inv == null) return;
             var sb = new System.Text.StringBuilder();
             sb.AppendLine("<b>INVENTORY</b>  <color=#6b727a>[TAB] close   [1]-[6] use</color>");
-            if (_inv.Items.Count == 0)
+            if (_inv.Items.Count == 0 && _inv.SlotCount == 0)
             {
                 sb.Append("<color=#6b727a>Nothing carried.</color>");
             }
             else
             {
-                for (int i = 0; i < _inv.Items.Count; i++)
+                var slots = _inv.SlotInfos();
+                for (int i = 0; i < slots.Count; i++)
                 {
-                    var item = _inv.Items[i];
+                    var item = slots[i].def;
+                    int count = slots[i].count;
                     string tag = item.kind == Inventory.ItemKind.Keycard
                         ? $"<color=#6b727a>pass lvl {item.accessLevel}</color>"
                         : EffectTag(item);
                     var c = ColorBlockToHex(item.uiColor);
-                    sb.AppendLine($"<color={c}>{i + 1}.</color> {item.displayName}  {tag}");
+                    string xs = count > 1 ? $" <color=#c9a13f>x{count}</color>" : "";
+                    sb.AppendLine($"<color={c}>{i + 1}.</color> {item.displayName}{xs}  {tag}");
                     if (!string.IsNullOrEmpty(item.description))
                         sb.AppendLine($"    <size=11><color=#8d949d>{item.description}</color></size>");
                 }

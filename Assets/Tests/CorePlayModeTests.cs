@@ -194,6 +194,106 @@ namespace SignalLost.Tests
         }
 
         [UnityTest]
+        public IEnumerator Inventory_Stacks_CountAndConsume()
+        {
+            _player = GameObject.FindGameObjectWithTag("Player");
+            _inventory = _player.GetComponent<SignalLost.Inventory.Inventory>();
+            Assert.That(_inventory, Is.Not.Null, "player must have Inventory component");
+
+            var scrap = Items.ItemDatabase.Instance.Resolve("scrap");
+            Assert.That(scrap, Is.Not.Null, "scrap registered in ItemDatabase");
+
+            int before = _inventory.Count("scrap");
+            _inventory.Add(scrap);
+            _inventory.Add(scrap);
+            Assert.That(_inventory.Count("scrap"), Is.EqualTo(before + 2));
+            Assert.That(_inventory.Consume("scrap", 2), Is.True);
+            Assert.That(_inventory.Count("scrap"), Is.EqualTo(before));
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator CraftingBench_CraftMedkit_FromScrap()
+        {
+            _player = GameObject.FindGameObjectWithTag("Player");
+            _inventory = _player.GetComponent<SignalLost.Inventory.Inventory>();
+            var bench = GameObject.Find("Workbench").GetComponent<SignalLost.Interaction.CraftingBench>();
+            Assert.That(bench, Is.Not.Null);
+
+            var scrap = Items.ItemDatabase.Instance.Resolve("scrap");
+            while (_inventory.Count("scrap") < 2) _inventory.Add(scrap);
+            int medkitBefore = _inventory.Count("medkit");
+
+            Assert.That(bench.Craft(0), Is.True);
+            Assert.That(_inventory.Count("scrap"), Is.GreaterThanOrEqualTo(0));
+            Assert.That(_inventory.Count("medkit"), Is.EqualTo(medkitBefore + 1));
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator PowerNode_TwoFuses_EngagesAndSetsFlag()
+        {
+            _player = GameObject.FindGameObjectWithTag("Player");
+            _inventory = _player.GetComponent<SignalLost.Inventory.Inventory>();
+            var node = GameObject.Find("PowerNode_Engineering").GetComponent<SignalLost.Interaction.PowerNode>();
+            Assert.That(node, Is.Not.Null);
+
+            var fuse = Items.ItemDatabase.Instance.Resolve("fuse");
+            while (_inventory.Count("fuse") < 2) _inventory.Add(fuse);
+
+            node.Interact(_player);
+            Assert.That(node.Inserted, Is.True);
+            Assert.That(_inventory.Count("fuse"), Is.EqualTo(0));
+
+            int powerEvents = 0;
+            System.Action<PowerRestored> h = _ => powerEvents++;
+            EventBus.Subscribe(h);
+
+            node.Interact(_player);
+            float t = 0f;
+            while (!node.Online && t < 8f) { t += Time.deltaTime; yield return null; }
+
+            Assert.That(node.Online, Is.True);
+            Assert.That(StoryFlagSystem.IsSet("engineering_power"), Is.True);
+            Assert.That(powerEvents, Is.EqualTo(1));
+            EventBus.Unsubscribe(h);
+        }
+
+        [UnityTest]
+        public IEnumerator Scanner_ReadsNearbySignature()
+        {
+            var scanner = GameObject.FindGameObjectWithTag("Player").GetComponent<SignalLost.Player.Scanner>();
+            Assert.That(scanner, Is.Not.Null);
+
+            var keyGo = GameObject.Find("Pickup_Keycard");
+            Assert.That(keyGo, Is.Not.Null);
+            keyGo.SetActive(true);
+
+            string result = scanner.ScanAround(keyGo.transform.position, 4f);
+            Assert.That(result, Is.Not.Null.And.Contains("CREW KEYCARD"), "expected keycard signature, got: " + (result ?? "null"));
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator DoorAutoClose_ClosesAfterDelay_WhenPlayerAway()
+        {
+            var door = SignalLost.Interaction.DoorRegistry.Find("door_pod");
+            Assert.That(door, Is.Not.Null);
+            var p = GameObject.FindGameObjectWithTag("Player");
+            var oldPos = p.transform.position;
+            p.transform.position = door.transform.position + new Vector3(8f, 0, 0);
+
+            door.SetOpen(true);
+            Assert.That(door.IsOpen, Is.True);
+
+            float t = 0f;
+            while (door.IsOpen && t < 10f) { t += Time.deltaTime; yield return null; }
+            Assert.That(door.IsOpen, Is.False, "door should auto-close when player stands away");
+
+            p.transform.position = oldPos;
+        }
+
+        [UnityTest]
         public IEnumerator Flashlight_Toggle_DrainsBattery()
         {
             _player = GameObject.FindGameObjectWithTag("Player");

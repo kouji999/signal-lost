@@ -125,6 +125,7 @@ namespace SignalLost.AI
         {
             _awake = true;
             State = EnemyState.Idle;
+            EventBus.Publish(new ChapterCardRequested("CHAPTER 03", "ECHO"));
             EventBus.Publish(new SubtitleEvent("A.R.I.A.", "Power restoration has reactivated the north corridor. A former crew member remains there. I... cannot bring myself to classify it as human anymore. Avoid the communication deck.", 8f));
         }
 

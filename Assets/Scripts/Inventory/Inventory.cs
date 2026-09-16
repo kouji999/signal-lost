@@ -9,66 +9,96 @@ namespace SignalLost.Inventory
     {
         public const int MaxSlots = 6;
 
-        private readonly List<ItemDefinition> _items = new();
+        private sealed class Slot
+        {
+            public ItemDefinition Def;
+            public int Count;
+        }
 
-        public IReadOnlyList<ItemDefinition> Items => _items;
-        public bool HasFreeSlot => _items.Count < MaxSlots;
+        private readonly List<Slot> _slots = new();
+
+        public IReadOnlyList<ItemDefinition> Items
+        {
+            get
+            {
+                _view.Clear();
+                foreach (var s in _slots) _view.Add(s.Def);
+                return _view;
+            }
+        }
+        private readonly List<ItemDefinition> _view = new();
+
+        public int SlotCount => _slots.Count;
+        public bool HasFreeSlot => _slots.Count < MaxSlots;
 
         public bool Add(ItemDefinition item)
         {
             if (item == null) return false;
             if (item.stackable)
             {
-                for (int i = 0; i < _items.Count; i++)
+                foreach (var s in _slots)
                 {
-                    if (_items[i].itemId == item.itemId && _items[i].stackable)
+                    if (s.Def.itemId == item.itemId && s.Count < Mathf.Max(1, s.Def.maxStack))
                     {
-                        _items[i] = item;
+                        s.Count++;
+                        s.Def = item;
                         EventBus.Publish(InventoryChanged.Instance);
                         return true;
                     }
                 }
             }
             if (!HasFreeSlot) return false;
-            _items.Add(item);
+            _slots.Add(new Slot { Def = item, Count = item.stackable ? 1 : 1 });
             EventBus.Publish(InventoryChanged.Instance);
             return true;
         }
 
         public bool Remove(ItemDefinition item)
         {
-            if (!_items.Remove(item)) return false;
-            EventBus.Publish(InventoryChanged.Instance);
-            return true;
+            for (int i = 0; i < _slots.Count; i++)
+            {
+                if (_slots[i].Def.itemId != item.itemId) continue;
+                _slots[i].Count--;
+                if (_slots[i].Count <= 0) _slots.RemoveAt(i);
+                EventBus.Publish(InventoryChanged.Instance);
+                return true;
+            }
+            return false;
         }
 
-        public ItemDefinition Find(string itemId) => _items.Find(i => i.itemId == itemId);
+        public ItemDefinition Find(string itemId)
+        {
+            foreach (var s in _slots) if (s.Def.itemId == itemId) return s.Def;
+            return null;
+        }
 
         public int Count(string itemId)
         {
             int n = 0;
-            for (int i = 0; i < _items.Count; i++)
-                if (_items[i].itemId == itemId) n++;
+            foreach (var s in _slots) if (s.Def.itemId == itemId) n += s.Count;
             return n;
         }
 
         public bool Has(string itemId) => Count(itemId) > 0;
 
-        public bool Consume(string itemId)
+        public bool Consume(string itemId, int amount = 1)
         {
-            var item = Find(itemId);
-            if (item == null || !Remove(item)) return false;
-            ApplyEffects(item);
+            while (amount-- > 0)
+            {
+                var def = Find(itemId);
+                if (def == null || !Remove(def)) return false;
+            }
             return true;
         }
 
         public void UseSlot(int index)
         {
-            if (index < 0 || index >= _items.Count) return;
-            var item = _items[index];
-            if (item.kind == ItemKind.Keycard) return;
-            ApplyEffects(item);
-            _items.RemoveAt(index);
+            if (index < 0 || index >= _slots.Count) return;
+            var slot = _slots[index];
+            if (slot.Def.kind == ItemKind.Keycard) return;
+            ApplyEffects(slot.Def);
+            slot.Count--;
+            if (slot.Count <= 0) _slots.RemoveAt(index);
             EventBus.Publish(InventoryChanged.Instance);
         }
 
@@ -81,31 +111,56 @@ namespace SignalLost.Inventory
             if (item.batteryCharge > 0f) vitals.ChargeBattery(item.batteryCharge);
         }
 
+        public List<(ItemDefinition def, int count)> SlotInfos()
+        {
+            var list = new List<(ItemDefinition, int)>();
+            foreach (var s in _slots) list.Add((s.Def, s.Count));
+            return list;
+        }
+
         public int HighestAccessLevel()
         {
             int level = 0;
-            for (int i = 0; i < _items.Count; i++)
-                if (_items[i].kind == ItemKind.Keycard && _items[i].accessLevel > level)
-                    level = _items[i].accessLevel;
+            foreach (var s in _slots)
+                if (s.Def.kind == ItemKind.Keycard && s.Def.accessLevel > level)
+                    level = s.Def.accessLevel;
             return level;
         }
 
         public List<string> SnapshotIds()
         {
             var list = new List<string>();
-            foreach (var item in _items) list.Add(item.itemId);
+            foreach (var s in _slots)
+                for (int i = 0; i < s.Count; i++) list.Add(s.Def.itemId);
             return list;
         }
 
         public void RestoreFromIds(List<string> ids, Func<string, ItemDefinition> resolver)
         {
-            _items.Clear();
+            _slots.Clear();
             foreach (var id in ids)
             {
                 var item = resolver(id);
-                if (item != null) _items.Add(item);
+                if (item == null) continue;
+                if (AddSilent(item)) continue;
             }
             EventBus.Publish(InventoryChanged.Instance);
+        }
+
+        private bool AddSilent(ItemDefinition item)
+        {
+            if (item.stackable)
+            {
+                foreach (var s in _slots)
+                    if (s.Def.itemId == item.itemId && s.Count < Mathf.Max(1, s.Def.maxStack))
+                    {
+                        s.Count++;
+                        return true;
+                    }
+            }
+            if (!HasFreeSlot) return false;
+            _slots.Add(new Slot { Def = item, Count = 1 });
+            return true;
         }
     }
 }

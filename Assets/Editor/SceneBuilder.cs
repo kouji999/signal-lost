@@ -65,6 +65,7 @@ namespace SignalLost.EditorTools
             BuildEcho(player);
             BuildSystems(items, log);
             BuildHud();
+            AddPostProcessVolume();
 
             WireScene();
             BakeNavMesh(level);
@@ -172,6 +173,36 @@ namespace SignalLost.EditorTools
             Debug.Log("[FixUrp] Renderer assigned OK");
         }
 
+        static void SetRecipe(SerializedProperty arr, int index, string output, string inA, int cntA, string inB, int cntB)
+        {
+            var el = arr.GetArrayElementAtIndex(index);
+            el.FindPropertyRelative("outputItemId").stringValue = output;
+            el.FindPropertyRelative("inputA").stringValue = inA;
+            el.FindPropertyRelative("countA").intValue = cntA;
+            el.FindPropertyRelative("inputB").stringValue = inB;
+            el.FindPropertyRelative("countB").intValue = cntB;
+        }
+
+        static void AddPostProcessVolume()
+        {
+            var go = new GameObject("PostProcess");
+            var vol = go.AddComponent<UnityEngine.Rendering.Volume>();
+            vol.isGlobal = true;
+            var profile = ScriptableObject.CreateInstance<UnityEngine.Rendering.VolumeProfile>();
+            var vig = profile.Add<UnityEngine.Rendering.Universal.Vignette>(true);
+            vig.intensity.value = 0.42f;
+            vig.rounded.value = true;
+            vig.color.value = new Color(0f, 0f, 0f, 1f);
+            var grain = profile.Add<UnityEngine.Rendering.Universal.FilmGrain>(true);
+            grain.intensity.value = 0.18f;
+            var toning = profile.Add<UnityEngine.Rendering.Universal.ColorAdjustments>(true);
+            toning.postExposure.value = -0.15f;
+            toning.saturation.value = -8f;
+            toning.colorFilter.value = new Color(0.92f, 0.96f, 1.02f);
+            AssetDatabase.CreateAsset(profile, "Assets/_Project/Settings/PostProfile.asset");
+            vol.profile = profile;
+        }
+
         static void SetIfPresent(SerializedObject so, string prop, float value)
         {
             var p = so.FindProperty(prop);
@@ -188,11 +219,14 @@ namespace SignalLost.EditorTools
             dict["battery"] = Item("battery", "Battery Pack", "Recharges suit equipment.", ItemKind.Consumable, new Color(0.9f, 0.8f, 0.2f), battery: 50f);
             dict["keycard_l1"] = Item("keycard_l1", "Crew Keycard", "Security level 1.", ItemKind.Keycard, new Color(0.4f, 0.6f, 0.9f), access: 1);
             dict["keycard_l2"] = Item("keycard_l2", "Security Keycard", "Security level 2. Research elevator access.", ItemKind.Keycard, new Color(0.9f, 0.3f, 0.3f), access: 2);
+            dict["fuse"] = Item("fuse", "Power Fuse", "Ceramic cartridge. Fits a station power node.", ItemKind.Component, new Color(0.9f, 0.6f, 0.1f), maxStack: 2);
+            dict["scrap"] = Item("scrap", "Scrap", "Salvaged plating and wiring. Raw crafting material.", ItemKind.Component, new Color(0.62f, 0.64f, 0.66f), maxStack: 6);
+            dict["oxygen_filter"] = Item("oxygen_filter", "O2 Filter", "Refills suit oxygen reserves.", ItemKind.Consumable, new Color(0.2f, 0.6f, 0.95f), oxygen: 40f);
             return dict;
         }
 
         static ItemDefinition Item(string id, string name, string desc, ItemKind kind, Color color,
-            float heal = 0f, float battery = 0f, int access = 0)
+            float heal = 0f, float battery = 0f, int access = 0, float oxygen = 0f, int maxStack = 3)
         {
             var path = $"{ItemsPath}/{id}.asset";
             var existing = AssetDatabase.LoadAssetAtPath<ItemDefinition>(path);
@@ -206,7 +240,9 @@ namespace SignalLost.EditorTools
             item.uiColor = color;
             item.healAmount = heal;
             item.batteryCharge = battery;
+            item.oxygenAmount = oxygen;
             item.accessLevel = access;
+            item.maxStack = maxStack;
             AssetDatabase.CreateAsset(item, path);
             return item;
         }
@@ -389,7 +425,7 @@ namespace SignalLost.EditorTools
         }
 
         static GameObject BuildDoor(string id, Vector3 center, char axis, Dictionary<string, Material> mats,
-            Transform parent, Material signMat = null, float wallH = 3.4f, int access = 0)
+            Transform parent, Material signMat = null, float wallH = 3.4f, int access = 0, float autoClose = 0f)
         {
             var root = new GameObject(id);
             root.transform.position = center;
@@ -485,6 +521,7 @@ namespace SignalLost.EditorTools
             so.FindProperty("doorId").stringValue = id;
             so.FindProperty("slidePanel").objectReferenceValue = panel.transform;
             so.FindProperty("accessLevel").intValue = access;
+            so.FindProperty("autoCloseSeconds").floatValue = autoClose;
             if (access > 0)
                 so.FindProperty("lockedHint").stringValue = $"ACCESS DENIED - LEVEL {access} KEYCARD REQUIRED";
             so.ApplyModifiedPropertiesWithoutUndo();
@@ -697,7 +734,7 @@ namespace SignalLost.EditorTools
             // ================= SEALED BACKROOMS LAYOUT =================
             // PodRoom -> CorridorA -> HUB (4-way) -> [Medbay W] [Storage E] [North corridor -> Comm N]
             RoomSealed("PodRoom", new Vector3(0, 1.4f, -1), new Vector3(6, 3, 6), mats, root.transform, openN: true);
-            BuildDoor("door_pod", new Vector3(0, 0.1f, 2f), 'z', mats, root.transform, mats["screenGreen"], 3.0f);
+            BuildDoor("door_pod", new Vector3(0, 0.1f, 2f), 'z', mats, root.transform, mats["screenGreen"], 3.0f, autoClose: 6f);
 
             var pod = Cube("EmergencyPod", new Vector3(0, 0.45f, -2.6f), new Vector3(1.2f, 0.5f, 2.2f), mats["pod"], LWorld);
             pod.transform.SetParent(root.transform, true);
@@ -708,7 +745,7 @@ namespace SignalLost.EditorTools
 
             RoomSealed("HabitationHub", new Vector3(0, 1.6f, 22), new Vector3(14, 3.4f, 14), mats, root.transform,
                 openS: true, openN: true, openE: true, openW: true);
-            BuildDoor("door_hub", new Vector3(0, 0.1f, 15f), 'z', mats, root.transform, mats["screenGreen"], 3.4f);
+            BuildDoor("door_hub", new Vector3(0, 0.1f, 15f), 'z', mats, root.transform, mats["screenGreen"], 3.4f, autoClose: 8f);
             var doorComm = BuildDoor("door_comm", new Vector3(0, 0.1f, 29f), 'z', mats, root.transform, mats["screenRed"], 3.4f, access: 1);
             BuildDoor("door_medbay", new Vector3(-7.5f, 0.1f, 22f), 'x', mats, root.transform, mats["screenGreen"], 3.2f);
             BuildDoor("door_storage", new Vector3(7.5f, 0.1f, 22f), 'x', mats, root.transform, mats["screenAmber"], 3.2f);
@@ -719,7 +756,7 @@ namespace SignalLost.EditorTools
             RoomSealed("Storage", new Vector3(12, 1.5f, 22), new Vector3(8, 3.2f, 10), mats, root.transform, openW: true);
 
             Corridor("CorridorB", new Vector3(0, 1.4f, 33.5f), new Vector3(3, 3, 9), mats, root.transform, axisZ: true);
-            RoomSealed("CommRoom", new Vector3(0, 1.6f, 43), new Vector3(12, 3.4f, 10), mats, root.transform, openS: true);
+            RoomSealed("CommRoom", new Vector3(0, 1.6f, 43), new Vector3(12, 3.4f, 10), mats, root.transform, openS: true, openE: true);
 
             // ---- Terminals ----
             var lsTerminal = BuildTerminal("LifeSupportTerminal", new Vector3(6.3f, 1.15f, 25.5f), Quaternion.Euler(0, 90, 0), mats);
@@ -772,7 +809,7 @@ namespace SignalLost.EditorTools
 
             // ================= SECURITY WING (east of Comm) =================
             Corridor("SecurityConnect", new Vector3(9f, 1.5f, 43), new Vector3(6, 3, 3), mats, root.transform, axisZ: false);
-            RoomSealed("SecurityRoom", new Vector3(16, 1.6f, 43), new Vector3(8, 3.2f, 10), mats, root.transform, openW: true);
+            RoomSealed("SecurityRoom", new Vector3(16, 1.6f, 43), new Vector3(8, 3.2f, 10), mats, root.transform, openW: true, openE: true);
             var cctv = BuildTerminal("CCTVTerminal", new Vector3(19.6f, 1.15f, 43f), Quaternion.Euler(0, -90, 0), mats);
             cctv.transform.SetParent(root.transform, true);
             cctv.AddComponent<AudioLogTerminal>();
@@ -781,13 +818,70 @@ namespace SignalLost.EditorTools
             secLog.transform.SetParent(root.transform, true);
             secLog.AddComponent<AudioLogTerminal>();
             AddSign("Sign_Security", new Vector3(11.5f, 1f, 43f), new Vector3(1.5f, 2.5f, 2.8f), "SECURITY OFFICE", root.transform);
-            BuildReveal("Reveal_TimeAnomaly", new Vector3(16f, 1.5f, 44.5f), new Vector3(4f, 3f, 2f), root.transform,
+            var timeReveal = BuildReveal("Reveal_TimeAnomaly", new Vector3(16f, 1.5f, 44.5f), new Vector3(4f, 3f, 2f), root.transform,
                 ("SYSTEM", "CCTV ARCHIVE // all crew entered elevator at 17:43.", 1f),
                 ("SYSTEM", "Last frame timestamp: 03:17.", 4f),
                 ("A.R.I.A.", "That does not match my chronometer. I recommend you stop asking questions.", 4f));
+            SetRevealFlag(timeReveal, "time_anomaly");
+            SetRevealFlag(BuildReveal("Reveal_SecurityZone", new Vector3(14f, 1.5f, 43f), new Vector3(2f, 3f, 6f), root.transform),
+                SignalLost.Narrative.StoryFlagKeys.EnteredSecurity);
+
+            // ================= ENGINEERING WING (east of Security) =================
+            BuildDoor("door_security", new Vector3(6f, 0.1f, 43f), 'x', mats, root.transform, mats["screenGreen"], 3.4f, autoClose: 9f);
+            Corridor("EngConnect", new Vector3(21.5f, 1.5f, 43), new Vector3(3, 3.2f, 3), mats, root.transform, axisZ: false);
+            BuildDoor("door_engineering", new Vector3(20f, 0.1f, 43f), 'x', mats, root.transform, mats["screenAmber"], 3.2f, autoClose: 9f);
+            RoomSealed("Engineering", new Vector3(28, 1.6f, 43), new Vector3(10, 3.4f, 12), mats, root.transform, openW: true);
+
+            var gen = Cube("Generator", new Vector3(30.4f, 1.1f, 45f), new Vector3(1.6f, 2.2f, 2.6f), mats["crate"], LWorld);
+            gen.transform.SetParent(root.transform, true);
+
+            var powerNode = BuildTerminal("PowerNode_Engineering", new Vector3(31.7f, 1.15f, 43f), Quaternion.Euler(0, -90, 0), mats);
+            powerNode.transform.SetParent(root.transform, true);
+            powerNode.AddComponent<PowerNode>();
+            var pnLightGo = new GameObject("NodeStatusLight");
+            pnLightGo.transform.SetParent(powerNode.transform);
+            pnLightGo.transform.localPosition = new Vector3(0.5f, 1.4f, 0f);
+            var pnLight = pnLightGo.AddComponent<Light>();
+            pnLight.type = LightType.Point;
+            pnLight.range = 3.5f;
+            pnLight.intensity = 2.5f;
+            pnLight.color = new Color(0.15f, 0.9f, 0.35f);
+
+            var bench = BuildTerminal("Workbench", new Vector3(28f, 1.15f, 38.6f), Quaternion.Euler(0, 180, 0), mats);
+            bench.transform.SetParent(root.transform, true);
+            bench.AddComponent<SignalLost.Interaction.CraftingBench>();
+
+            var engLight = new GameObject("MainLightPower");
+            engLight.transform.SetParent(root.transform);
+            engLight.transform.position = new Vector3(27f, 3.1f, 43f);
+            var el = engLight.AddComponent<Light>();
+            el.type = LightType.Point;
+            el.range = 13f;
+            el.intensity = 0f;
+            el.color = new Color(0.8f, 0.85f, 0.95f);
+            var engLight2 = new GameObject("MainLightPower");
+            engLight2.transform.SetParent(root.transform);
+            engLight2.transform.position = new Vector3(21.5f, 2.8f, 43f);
+            var el2 = engLight2.AddComponent<Light>();
+            el2.type = LightType.Point;
+            el2.range = 9f;
+            el2.intensity = 0f;
+            el2.color = new Color(0.8f, 0.85f, 0.95f);
+
+            BuildPickup("Pickup_FuseA", new Vector3(-10f, 0.45f, 25.8f), new Vector3(0.22f, 0.3f, 0.22f), mats["screenAmber"], root.transform, "pickup_fuse_a");
+            BuildPickup("Pickup_FuseB", new Vector3(25f, 0.45f, 40.5f), new Vector3(0.22f, 0.3f, 0.22f), mats["screenAmber"], root.transform, "pickup_fuse_b");
+            BuildPickup("Pickup_ScrapA", new Vector3(13.6f, 0.4f, 25.6f), new Vector3(0.3f, 0.18f, 0.3f), mats["crate"], root.transform, "pickup_scrap_a");
+            BuildPickup("Pickup_ScrapB", new Vector3(21.5f, 0.45f, 43f), new Vector3(0.3f, 0.18f, 0.3f), mats["crate"], root.transform, "pickup_scrap_b");
+            BuildPickup("Pickup_ScrapC", new Vector3(-3f, 0.45f, 41f), new Vector3(0.3f, 0.18f, 0.3f), mats["crate"], root.transform, "pickup_scrap_c");
+
+            AddSign("Sign_Engineering", new Vector3(23f, 1f, 43f), new Vector3(1.5f, 2.5f, 2.8f), "ENGINEERING DECK", root.transform);
 
             // ================= ELEVATOR DESCENT (north of Comm) =================
             var doorElev = BuildDoor("door_elevator", new Vector3(0, 0.1f, 48f), 'z', mats, root.transform, mats["screenRed"], 3.4f, access: 2);
+            var soElev = new SerializedObject(doorElev.GetComponent<DoorController>());
+            soElev.FindProperty("requiresFlag").stringValue = "engineering_power";
+            soElev.FindProperty("flagHint").stringValue = "ELEVATOR OFFLINE - ENGINEERING POWER REQUIRED";
+            soElev.ApplyModifiedPropertiesWithoutUndo();
             RoomSealed("ElevatorLobby", new Vector3(0, 1.6f, 50), new Vector3(8, 3.4f, 4), mats, root.transform, openS: true, openN: true);
             DescendShaft("Descent", new Vector3(0, -1.6f, 62f), 20f, 3f, 3f, 3f, mats, root.transform, fromNorth: true);
 
@@ -972,6 +1066,7 @@ namespace SignalLost.EditorTools
             go.AddComponent<PlayerVitals>();
             go.AddComponent<NoiseSource>();
             go.AddComponent<SignalLost.Inventory.Inventory>();
+            go.AddComponent<SignalLost.Player.Scanner>();
             var interactor = camGo.AddComponent<PlayerInteractor>();
 
             SetPrivateField(go.GetComponent<PlayerController>(), "noiseSource", go.GetComponent<NoiseSource>());
@@ -1177,6 +1272,39 @@ namespace SignalLost.EditorTools
             }
 
             WirePickup("Pickup_Keycard2", "keycard_l2", "pickup_keycard2");
+            WirePickup("Pickup_FuseA", "fuse", "pickup_fuse_a");
+            WirePickup("Pickup_FuseB", "fuse", "pickup_fuse_b");
+            WirePickup("Pickup_ScrapA", "scrap", "pickup_scrap_a");
+            WirePickup("Pickup_ScrapB", "scrap", "pickup_scrap_b");
+            WirePickup("Pickup_ScrapC", "scrap", "pickup_scrap_c");
+
+            var pnGo = GameObject.Find("PowerNode_Engineering");
+            so = new SerializedObject(pnGo.GetComponent<PowerNode>());
+            so.FindProperty("nodeId").stringValue = "engineering_main";
+            so.FindProperty("fusesRequired").intValue = 2;
+            so.FindProperty("restoresFlag").stringValue = "engineering_power";
+            so.FindProperty("statusLight").objectReferenceValue = pnGo.GetComponentInChildren<Light>();
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            var benchGo = GameObject.Find("Workbench");
+            var benchSo = new SerializedObject(benchGo.GetComponent<SignalLost.Interaction.CraftingBench>());
+            var recArr = benchSo.FindProperty("recipes");
+            recArr.arraySize = 3;
+            SetRecipe(recArr, 0, "medkit", "scrap", 2, "", 1);
+            SetRecipe(recArr, 1, "battery", "scrap", 1, "", 1);
+            SetRecipe(recArr, 2, "oxygen_filter", "scrap", 1, "battery", 1);
+            benchSo.ApplyModifiedPropertiesWithoutUndo();
+
+            var rigEng = GameObject.Find("LightRig").GetComponent<SignalLost.World.LightRig>();
+            var powerLights = new System.Collections.Generic.List<Light>();
+            foreach (var l in GameObject.Find("Level").GetComponentsInChildren<Light>(true))
+                if (l.gameObject.name == "MainLightPower") powerLights.Add(l);
+            so = new SerializedObject(rigEng);
+            var parr = so.FindProperty("powerLights");
+            parr.arraySize = powerLights.Count;
+            for (int pi = 0; pi < powerLights.Count; pi++)
+                parr.GetArrayElementAtIndex(pi).objectReferenceValue = powerLights[pi];
+            so.ApplyModifiedPropertiesWithoutUndo();
 
             WirePickup("Pickup_PowerCell", "power_cell", "pickup_power_cell");
             WirePickup("Pickup_Medkit", "medkit", "pickup_medkit");
@@ -1370,6 +1498,25 @@ namespace SignalLost.EditorTools
             eventSystem.AddComponent<EventSystem>();
             eventSystem.AddComponent<StandaloneInputModule>();
 
+            var scanText = CreateText(canvasGo.transform, "ScannerText", font, new Vector2(0.5f, 0.5f), new Vector2(0, -120), new Vector2(700, 70), 15, TextAnchor.MiddleCenter);
+            scanText.color = new Color(0.45f, 0.85f, 0.95f);
+            scanText.enabled = false;
+
+            var chapRoot = new GameObject("ChapterCard");
+            chapRoot.transform.SetParent(canvasGo.transform);
+            var chapRt = chapRoot.AddComponent<RectTransform>();
+            Stretch(chapRt);
+            var chapGroup = chapRoot.AddComponent<CanvasGroup>();
+            chapGroup.alpha = 0f;
+            var chapBlocker = chapRoot.AddComponent<Image>();
+            chapBlocker.sprite = white;
+            chapBlocker.color = new Color(0, 0, 0, 0.001f);
+            chapBlocker.raycastTarget = false;
+            var chapText = CreateText(chapRoot.transform, "ChapterText", font, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1000, 160), 52, TextAnchor.MiddleCenter);
+            chapText.color = Color.white;
+            chapText.alignment = TextAnchor.MiddleCenter;
+            chapText.text = "";
+
             var hud = canvasGo.AddComponent<HUDController>();
             var so = new SerializedObject(hud);
             so.FindProperty("healthFill").objectReferenceValue = healthFill;
@@ -1380,6 +1527,9 @@ namespace SignalLost.EditorTools
             so.FindProperty("speakerText").objectReferenceValue = speaker;
             so.FindProperty("subtitleText").objectReferenceValue = subtitle;
             so.FindProperty("damageVignette").objectReferenceValue = dmgGroup;
+            so.FindProperty("scannerText").objectReferenceValue = scanText;
+            so.FindProperty("chapterGroup").objectReferenceValue = chapGroup;
+            so.FindProperty("chapterText").objectReferenceValue = chapText;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             var pause = canvasGo.AddComponent<SignalLost.Narrative.PauseMenu>();
@@ -1404,6 +1554,7 @@ namespace SignalLost.EditorTools
             var invPanel = canvasGo.AddComponent<SignalLost.UI.InventoryPanel>();
             SetPrivateField(invPanel, "panel", invGroup);
             SetPrivateField(invPanel, "content", invText);
+
 
             var intro = canvasGo.AddComponent<IntroScreen>();
             SetPrivateField(intro, "root", introGroup);

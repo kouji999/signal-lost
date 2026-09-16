@@ -157,4 +157,26 @@ namespace SignalLost.Core
             AccessLevel = accessLevel;
         }
     }
+
+    public readonly struct ChapterCardRequested
+    {
+        public readonly string Chapter;
+        public readonly string Title;
+        public ChapterCardRequested(string chapter, string title)
+        {
+            Chapter = chapter;
+            Title = title;
+        }
+    }
+
+    public readonly struct PowerRestored
+    {
+        public static readonly PowerRestored Instance = new();
+    }
+
+    public readonly struct ScannerResult
+    {
+        public readonly string Lines;
+        public ScannerResult(string lines) => Lines = lines;
+    }
 }

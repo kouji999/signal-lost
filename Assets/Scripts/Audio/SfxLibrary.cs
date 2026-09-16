@@ -6,7 +6,8 @@ namespace SignalLost.Audio
     {
         const int SR = 44100;
         static AudioClip s_drone, s_tension, s_heartbeat, s_whisper, s_pickup, s_door,
-                       s_beep, s_static, s_stinger, s_hurt, s_stepA, s_stepB, s_clank;
+                       s_beep, s_static, s_stinger, s_hurt, s_stepA, s_stepB, s_clank,
+                       s_scan, s_powerup, s_craft;
 
         public static AudioClip Drone => s_drone ??= BuildDrone();
         public static AudioClip Tension => s_tension ??= BuildTension();
@@ -21,6 +22,9 @@ namespace SignalLost.Audio
         public static AudioClip StepA => s_stepA ??= BuildStep(1.0f);
         public static AudioClip StepB => s_stepB ??= BuildStep(0.82f);
         public static AudioClip Clank => s_clank ??= BuildClank();
+        public static AudioClip Scan => s_scan ??= BuildScan();
+        public static AudioClip PowerUp => s_powerup ??= BuildPowerUp();
+        public static AudioClip Craft => s_craft ??= BuildCraft();
 
         static float Lerp(float a, float b, float t) => a + (b - a) * t;
 
@@ -34,7 +38,8 @@ namespace SignalLost.Audio
 
         static void LoopSmooth(float[] d)
         {
-            int xf = SR / 25;
+            int xf = Mathf.Min(SR / 25, d.Length / 2);
+            if (xf < 2) return;
             for (int i = 0; i < xf; i++)
             {
                 float w = (float)i / xf;
@@ -229,6 +234,51 @@ namespace SignalLost.Audio
                 d[i] = metal + N() * 0.3f * Mathf.Exp(-t * 40f);
             }
             return Make("clank", d);
+        }
+
+        static AudioClip BuildScan()
+        {
+            int len = SR * 18 / 1000;
+            var d = new float[len];
+            for (int i = 0; i < len; i++)
+            {
+                float t = (float)i / SR;
+                float blip = 0f;
+                if (t < 0.06f) blip = Mathf.Sin(2f * Mathf.PI * 1420f * t) * Mathf.Exp(-t * 34f);
+                else if (t < 0.14f) blip = Mathf.Sin(2f * Mathf.PI * 1890f * (t - 0.06f)) * Mathf.Exp(-(t - 0.06f) * 34f);
+                d[i] = blip * 0.5f;
+            }
+            return Make("scan", d);
+        }
+
+        static AudioClip BuildPowerUp()
+        {
+            int len = SR * 16 / 10;
+            var d = new float[len];
+            for (int i = 0; i < len; i++)
+            {
+                float t = (float)i / SR;
+                float p = t / (len / (float)SR);
+                float rumble = Mathf.Sin(2f * Mathf.PI * (36f + 70f * p) * t) * 0.4f;
+                float click = p < 0.05f ? N() * 0.5f * Mathf.Exp(-p * 60f) : 0f;
+                float hum = Mathf.Sin(2f * Mathf.PI * (50f + 120f * Mathf.Min(1f, p * 2f)) * t) * Mathf.Clamp01((p - 0.5f) * 2f) * 0.25f;
+                d[i] = (rumble + click + hum) * (1f - p * 0.6f);
+            }
+            return Make("powerup", d);
+        }
+
+        static AudioClip BuildCraft()
+        {
+            int len = SR * 12 / 100;
+            var d = new float[len];
+            for (int i = 0; i < len; i++)
+            {
+                float t = (float)i / SR;
+                float tick = Mathf.Abs(Mathf.Sin(2f * Mathf.PI * 440f * t));
+                float chirp = Mathf.Sin(2f * Mathf.PI * (660f + 500f * t / 0.12f) * t) * Mathf.Exp(-t * 24f);
+                d[i] = tick * 0.15f * Mathf.Exp(-t * 30f) + chirp * 0.4f;
+            }
+            return Make("craft", d);
         }
     }
 }

@@ -12,6 +12,7 @@ namespace SignalLost.Interaction
 
         public string PickupId => pickupId;
         public bool Collected { get; private set; }
+        public Inventory.ItemDefinition ItemDef => item;
 
         public string Prompt => item != null ? $"[E] TAKE {item.displayName.ToUpper()}" : "[E] TAKE";
 

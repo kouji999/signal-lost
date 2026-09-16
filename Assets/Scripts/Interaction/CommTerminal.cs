@@ -60,8 +60,8 @@ namespace SignalLost.Interaction
             EventBus.Publish(new SubtitleEvent("SYSTEM", "SIGNAL LOST", 3f));
 
             ObjectiveSystem.Instance.CompleteObjective("obj_communication");
-            ObjectiveSystem.Instance.AddObjective("obj_truth", "Investigate The Signal",
-                "The signal came from INSIDE the station. Find a LEVEL-2 keycard in the SECURITY office (east), then descend via the elevator.");
+            ObjectiveSystem.Instance.AddObjective("obj_power", "Restore Engineering Power",
+                "The elevator is dead. Find 2 FUSES (the SCANNER can trace them), then engage the POWER NODE in ENGINEERING, east of the STORAGE BAY.");
 
             if (commDoor != null) commDoor.SetOpen(true, broadcast: true);
         }

@@ -49,16 +49,56 @@ namespace SignalLost.Narrative
                         "A crew keycard unlocks that door. The last one issued was logged in the MEDBAY. West. Please do not go alone.", 6f));
                     break;
                 case "door_elevator":
-                    ObjectiveSystem.Instance.AddObjective("hint_keycard2", "Find the SECURITY keycard (LVL-2)",
-                        "The SECURITY OFFICE sits east of the COMMUNICATION DECK. Search it.");
-                    EventBus.Publish(new SubtitleEvent("A.R.I.A.",
-                        "Level-2 clearance only. The security office, east of the communication deck, holds such a card.", 6f));
+                    if (!StoryFlagSystem.IsSet("engineering_power"))
+                    {
+                        ObjectiveSystem.Instance.AddObjective("obj_power", "Restore Engineering Power",
+                            "The elevator is dead. Find 2 FUSES (the SCANNER can trace them), then engage the POWER NODE in ENGINEERING, east of the SECURITY office.");
+                        EventBus.Publish(new SubtitleEvent("A.R.I.A.",
+                            "The elevator draws more power than this deck can give. Engineering, beyond security, still has a live node.", 6f));
+                    }
+                    else
+                    {
+                        ObjectiveSystem.Instance.AddObjective("hint_keycard2", "Find the SECURITY keycard (LVL-2)",
+                            "The SECURITY OFFICE sits east of the COMMUNICATION DECK. Search it.");
+                        EventBus.Publish(new SubtitleEvent("A.R.I.A.",
+                            "Level-2 clearance only. The security office, east of the communication deck, holds such a card.", 6f));
+                    }
                     break;
             }
         }
 
         private void OnFlagChanged(StoryFlagChanged evt)
         {
+            if (!evt.Value) return;
+            switch (evt.Key)
+            {
+                case StoryFlagKeys.EnteredSecurity:
+                    EventBus.Publish(new ChapterCardRequested("CHAPTER 04", "THE CREW"));
+                    break;
+                case "time_anomaly":
+                    EventBus.Publish(new ChapterCardRequested("CHAPTER 05", "03:17"));
+                    break;
+                case StoryFlagKeys.EnteredResearch:
+                    EventBus.Publish(new ChapterCardRequested("CHAPTER 06", "BELOW"));
+                    break;
+                case StoryFlagKeys.DiscoveredIdentity:
+                    EventBus.Publish(new ChapterCardRequested("CHAPTER 07", "SIGNAL"));
+                    break;
+                case StoryFlagKeys.EnteredCore:
+                    EventBus.Publish(new ChapterCardRequested("CHAPTER 08", "ARIA"));
+                    break;
+                case "engineering_power":
+                    if (ObjectiveSystem.Instance != null)
+                    {
+                        ObjectiveSystem.Instance.CompleteObjective("obj_power");
+                        ObjectiveSystem.Instance.AddObjective("obj_truth", "Investigate The Signal",
+                            "The signal came from INSIDE the station. Find a LEVEL-2 keycard in the SECURITY office (east of Engineering), then descend via the elevator.");
+                    }
+                    EventBus.Publish(new SubtitleEvent("SYSTEM",
+                        "POWER RESTORED — Engineering is live. The SECURITY office beyond it holds a level-2 keycard.", 5f));
+                    break;
+            }
+
             if (evt.Key == "pickup:pickup_keycard" && evt.Value)
             {
                 ObjectiveSystem.Instance.RemoveObjective("hint_keycard1");
@@ -108,10 +148,12 @@ namespace SignalLost.Narrative
 
             ObjectiveSystem.Instance.AddObjective("obj_life_support", "Restore Life Support",
                 "Find a POWER CELL in the STORAGE BAY (east), then restart the system at the console in this deck.");
+            EventBus.Publish(new ChapterCardRequested("CHAPTER 01", "WAKE"));
         }
 
         private void OnLifeSupportRestored(LifeSupportRestored evt)
         {
+            EventBus.Publish(new ChapterCardRequested("CHAPTER 02", "SILENCE"));
             ObjectiveSystem.Instance.CompleteObjective("obj_life_support");
             ObjectiveSystem.Instance.AddObjective("obj_communication", "Restore Communication",
                 "Find the CREW KEYCARD in the MEDBAY (west), then repair the array on the COMMUNICATION DECK (north).");

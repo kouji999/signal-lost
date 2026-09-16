@@ -72,6 +72,8 @@ namespace SignalLost.Audio
             EventBus.Subscribe<EnemyLostPlayer>(OnChaseEnd);
             EventBus.Subscribe<LifeSupportRestored>(OnLifeSupport);
             EventBus.Subscribe<StoryFlagChanged>(OnFlag);
+            EventBus.Subscribe<ScannerResult>(OnScan);
+            EventBus.Subscribe<PowerRestored>(OnPower);
         }
 
         private void OnDisable()
@@ -86,6 +88,8 @@ namespace SignalLost.Audio
             EventBus.Unsubscribe<EnemyLostPlayer>(OnChaseEnd);
             EventBus.Unsubscribe<LifeSupportRestored>(OnLifeSupport);
             EventBus.Unsubscribe<StoryFlagChanged>(OnFlag);
+            EventBus.Unsubscribe<ScannerResult>(OnScan);
+            EventBus.Unsubscribe<PowerRestored>(OnPower);
         }
 
         private void Update()
@@ -148,6 +152,23 @@ namespace SignalLost.Audio
                 Play2D(SfxLibrary.Static, 0.9f);
                 _targetWhisper = Mathf.Max(_targetWhisper, 0.25f);
             }
+            if (evt.Text != null && evt.Text.StartsWith("FABRICATED"))
+                Play2D(SfxLibrary.Craft, 0.9f);
+        }
+
+        private float _lastScan = -1f;
+
+        private void OnScan(ScannerResult evt)
+        {
+            if (evt.Lines == null) return;
+            if (Time.time - _lastScan < 0.35f) return;
+            _lastScan = Time.time;
+            Play2D(SfxLibrary.Scan, 0.7f);
+        }
+
+        private void OnPower(PowerRestored evt)
+        {
+            Play2D(SfxLibrary.PowerUp, 1f);
         }
 
         private void OnStep(FootstepPlayed evt)

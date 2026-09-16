@@ -28,20 +28,33 @@ namespace SignalLost.UI
             if (root == null) yield break;
 
             root.alpha = 1f;
+            bool skipped = false;
 
             foreach (var line in BootLines)
             {
                 if (lineText != null) lineText.text = line;
-                yield return new WaitForSeconds(1.1f);
+                float t = 0f;
+                while (t < 1.1f)
+                {
+                    t += Time.unscaledDeltaTime;
+                    if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.Space))
+                    {
+                        skipped = true;
+                        break;
+                    }
+                    yield return null;
+                }
+                if (skipped) break;
             }
 
             if (lineText != null) lineText.text = string.Empty;
 
-            float t = 0f;
-            while (t < 1.4f)
+            float f = 0f;
+            float fadeTime = skipped ? 0.6f : 1.4f;
+            while (f < fadeTime)
             {
-                t += Time.deltaTime;
-                root.alpha = 1f - (t / 1.4f);
+                f += Time.unscaledDeltaTime;
+                root.alpha = 1f - (f / fadeTime);
                 yield return null;
             }
             root.alpha = 0f;

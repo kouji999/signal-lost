@@ -36,6 +36,15 @@ namespace SignalLost.EditorTools
             Check("cctv terminal", GameObject.Find("CCTVTerminal") != null);
             Check("keycard2 pickup", GameObject.Find("Pickup_Keycard2") != null);
             Check("elevator door", GameObject.Find("door_elevator") != null);
+            Check("security door", GameObject.Find("door_security") != null);
+            Check("engineering room", GameObject.Find("Engineering") != null);
+            Check("engineering door", GameObject.Find("door_engineering") != null);
+            Check("power node", UnityEngine.Object.FindAnyObjectByType<SignalLost.Interaction.PowerNode>() != null);
+            Check("workbench", UnityEngine.Object.FindAnyObjectByType<SignalLost.Interaction.CraftingBench>() != null);
+            Check("fuse pickups", GameObject.Find("Pickup_FuseA") != null && GameObject.Find("Pickup_FuseB") != null);
+            Check("scrap pickups", GameObject.Find("Pickup_ScrapA") != null && GameObject.Find("Pickup_ScrapC") != null);
+            Check("post volume", UnityEngine.Object.FindAnyObjectByType<UnityEngine.Rendering.Volume>() != null);
+            Check("scanner on player", UnityEngine.Object.FindAnyObjectByType<SignalLost.Player.Scanner>() != null);
             Check("research lab", GameObject.Find("ResearchLab") != null);
             Check("shiren pod", GameObject.Find("ShirenPod") != null);
             Check("core room", GameObject.Find("CoreRoom") != null);
@@ -44,7 +53,7 @@ namespace SignalLost.EditorTools
             Check("ending manager", UnityEngine.Object.FindAnyObjectByType<SignalLost.Narrative.EndingManager>() != null);
             Check("hunter", GameObject.Find("Hunter") != null);
             var ghostFound = false;
-            foreach (var x in UnityEngine.Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (var x in UnityEngine.Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include))
                 if (x != null && x.name == "ObserverGhost") { ghostFound = true; break; }
             Check("observer ghost", ghostFound);
             Check("door_hub", GameObject.Find("door_hub") != null);

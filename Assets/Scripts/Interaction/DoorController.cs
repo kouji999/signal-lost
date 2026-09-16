@@ -13,21 +13,28 @@ namespace SignalLost.Interaction
         [SerializeField] private bool startOpen;
         [SerializeField] private int accessLevel;
         [SerializeField] private string lockedHint = "ACCESS DENIED - SECURITY LEVEL REQUIRED";
+        [SerializeField] private string requiresFlag = "";
+        [SerializeField] private string flagHint = "SYSTEM OFFLINE — RESTORE POWER FIRST";
+        [SerializeField] private float autoCloseSeconds = 0f;
 
         private float _panelHeight;
         private float _topY;
         private bool _open;
         private Coroutine _anim;
+        private Coroutine _auto;
         private UnityEngine.AI.NavMeshObstacle _obstacle;
+        private Transform _playerTf;
 
         public string DoorId => doorId;
         public bool IsOpen => _open;
+        public int NeedsAccess => accessLevel;
         public string Prompt => _open ? "[E] CLOSE DOOR"
             : accessLevel > 0 ? $"[E] LOCKED - REQUIRES LVL-{accessLevel} KEYCARD"
             : "[E] OPEN DOOR";
 
         private void Awake()
         {
+            _playerTf = GameObject.FindGameObjectWithTag("Player")?.transform;
             _panelHeight = slidePanel.localScale.y;
             _topY = slidePanel.localPosition.y + _panelHeight / 2f;
             _obstacle = GetComponent<NavMeshObstacle>();
@@ -48,6 +55,12 @@ namespace SignalLost.Interaction
 
         public bool CanInteract(GameObject interactor)
         {
+            if (!string.IsNullOrEmpty(requiresFlag) && !StoryFlagSystem.IsSet(requiresFlag))
+            {
+                EventBus.Publish(new SubtitleEvent("SYSTEM", flagHint, 3f));
+                EventBus.Publish(new DoorDenied(doorId, 0));
+                return false;
+            }
             if (accessLevel > 0)
             {
                 var inv = interactor.GetComponent<Inventory.Inventory>();
@@ -72,7 +85,32 @@ namespace SignalLost.Interaction
             _open = open;
             if (_anim != null) StopCoroutine(_anim);
             _anim = open ? StartCoroutine(ShutterDown()) : StartCoroutine(ShutterUp());
+            if (open && autoCloseSeconds > 0f)
+            {
+                if (_auto != null) StopCoroutine(_auto);
+                _auto = StartCoroutine(AutoCloseRoutine());
+            }
+            else if (_auto != null)
+            {
+                StopCoroutine(_auto);
+                _auto = null;
+            }
             if (broadcast) EventBus.Publish(new DoorStateChanged(doorId, open));
+        }
+
+        private IEnumerator AutoCloseRoutine()
+        {
+            yield return new WaitForSeconds(autoCloseSeconds);
+            while (_open)
+            {
+                bool playerNear = _playerTf != null && Vector3.Distance(transform.position, _playerTf.position) < 1.6f;
+                if (!playerNear)
+                {
+                    SetOpen(false, broadcast: true);
+                    yield break;
+                }
+                yield return new WaitForSeconds(1.5f);
+            }
         }
 
         private IEnumerator ShutterDown()

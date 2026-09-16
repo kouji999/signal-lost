@@ -36,7 +36,7 @@ namespace SignalLost.Narrative
             yield return new WaitForSeconds(5.5f);
             Say("Your first task: restore Life Support. Find a power cell in the STORAGE BAY, east of this deck.", 6f);
             yield return new WaitForSeconds(6.5f);
-            SaySystem("CONTROLS — [E] INTERACT   [F] FLASHLIGHT   [CTRL] CROUCH   [SHIFT] SPRINT   [ESC] PAUSE", 8f);
+            SaySystem("CONTROLS — [E] INTERACT   [Q] SCANNER   [F] LIGHT   [TAB] INVENTORY   [CTRL] CROUCH   [ESC] PAUSE", 9f);
         }
 
         private void OnEnable()
