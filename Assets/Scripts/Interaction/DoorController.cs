@@ -22,20 +22,22 @@ namespace SignalLost.Interaction
 
         public string DoorId => doorId;
         public bool IsOpen => _open;
-        public string Prompt => _open ? "[E] CLOSE DOOR" : "[E] OPEN DOOR";
+        public string Prompt => _open ? "[E] CLOSE DOOR"
+            : accessLevel > 0 ? $"[E] LOCKED - REQUIRES LVL-{accessLevel} KEYCARD"
+            : "[E] OPEN DOOR";
 
         private void Awake()
         {
             _panelHeight = slidePanel.localScale.y;
             _topY = slidePanel.localPosition.y + _panelHeight / 2f;
-            _obstacle = slidePanel.GetComponent<UnityEngine.AI.NavMeshObstacle>();
+            _obstacle = GetComponent<NavMeshObstacle>();
             if (_obstacle == null)
             {
-                _obstacle = slidePanel.gameObject.AddComponent<NavMeshObstacle>();
+                _obstacle = gameObject.AddComponent<NavMeshObstacle>();
                 _obstacle.shape = NavMeshObstacleShape.Box;
                 _obstacle.carving = true;
-                _obstacle.center = Vector3.zero;
-                _obstacle.size = new Vector3(2.8f, 3f, 0.3f);
+                _obstacle.center = new Vector3(0f, 1.5f, 0f);
+                _obstacle.size = new Vector3(3f, 3f, 0.5f);
             }
             if (startOpen) SetOpen(true);
             else ApplyProgress(0f);
@@ -52,6 +54,7 @@ namespace SignalLost.Interaction
                 if (inv == null || inv.HighestAccessLevel() < accessLevel)
                 {
                     EventBus.Publish(new SubtitleEvent("SYSTEM", lockedHint, 2.5f));
+                    EventBus.Publish(new DoorDenied(doorId, accessLevel));
                     return false;
                 }
             }
@@ -115,6 +118,14 @@ namespace SignalLost.Interaction
         public static System.Collections.Generic.IReadOnlyList<DoorController> All => Doors;
         public static void Register(DoorController d) { if (!Doors.Contains(d)) Doors.Add(d); }
         public static void Unregister(DoorController d) => Doors.Remove(d);
-        public static DoorController Find(string id) => Doors.Find(d => d.DoorId == id);
+        public static DoorController Find(string id)
+        {
+            for (int i = Doors.Count - 1; i >= 0; i--)
+            {
+                if (Doors[i] == null) { Doors.RemoveAt(i); continue; }
+                if (Doors[i].DoorId == id) return Doors[i];
+            }
+            return null;
+        }
     }
 }

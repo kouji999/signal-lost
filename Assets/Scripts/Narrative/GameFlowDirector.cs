@@ -19,6 +19,7 @@ namespace SignalLost.Narrative
             EventBus.Subscribe<LifeSupportRestored>(OnLifeSupportRestored);
             EventBus.Subscribe<SliceCompleteEvent>(OnSliceComplete);
             EventBus.Subscribe<StoryFlagChanged>(OnFlagChanged);
+            EventBus.Subscribe<DoorDenied>(OnDoorDenied);
             StartCoroutine(StartSequence());
         }
 
@@ -28,12 +29,48 @@ namespace SignalLost.Narrative
             EventBus.Unsubscribe<LifeSupportRestored>(OnLifeSupportRestored);
             EventBus.Unsubscribe<SliceCompleteEvent>(OnSliceComplete);
             EventBus.Unsubscribe<StoryFlagChanged>(OnFlagChanged);
+            EventBus.Unsubscribe<DoorDenied>(OnDoorDenied);
+        }
+
+        private readonly System.Collections.Generic.HashSet<string> _hinted = new();
+
+        private void OnDoorDenied(DoorDenied evt)
+        {
+            if (_hinted.Contains(evt.DoorId)) return;
+            _hinted.Add(evt.DoorId);
+
+            switch (evt.DoorId)
+            {
+                case "door_comm":
+                case "comm_array":
+                    ObjectiveSystem.Instance.AddObjective("hint_keycard1", "Find the CREW KEYCARD",
+                        "A.R.I.A. indicates the MEDBAY, through the west door of this deck.");
+                    EventBus.Publish(new SubtitleEvent("A.R.I.A.",
+                        "A crew keycard unlocks that door. The last one issued was logged in the MEDBAY. West. Please do not go alone.", 6f));
+                    break;
+                case "door_elevator":
+                    ObjectiveSystem.Instance.AddObjective("hint_keycard2", "Find the SECURITY keycard (LVL-2)",
+                        "The SECURITY OFFICE sits east of the COMMUNICATION DECK. Search it.");
+                    EventBus.Publish(new SubtitleEvent("A.R.I.A.",
+                        "Level-2 clearance only. The security office, east of the communication deck, holds such a card.", 6f));
+                    break;
+            }
         }
 
         private void OnFlagChanged(StoryFlagChanged evt)
         {
-            if (evt.Key == "pickup:pickup_keycard2" && evt.Value)
+            if (evt.Key == "pickup:pickup_keycard" && evt.Value)
             {
+                ObjectiveSystem.Instance.RemoveObjective("hint_keycard1");
+                EventBus.Publish(new SubtitleEvent("SYSTEM", "CREW KEYCARD acquired — level 1. The COMMUNICATION DECK door will open now. [TAB] to view inventory", 5f));
+            }
+            else if (evt.Key == "pickup:pickup_power_cell" && evt.Value)
+            {
+                EventBus.Publish(new SubtitleEvent("SYSTEM", "POWER CELL acquired. The life-support console stands east of the HUB. [TAB] to view inventory", 5f));
+            }
+            else if (evt.Key == "pickup:pickup_keycard2" && evt.Value)
+            {
+                ObjectiveSystem.Instance.RemoveObjective("hint_keycard2");
                 StoryFlagSystem.Set(StoryFlagKeys.FoundKeycard2);
                 EventBus.Publish(new SubtitleEvent("A.R.I.A.",
                     "A level-2 keycard. The elevator north of the array leads to the research decks. I would prefer you stayed.", 7f));

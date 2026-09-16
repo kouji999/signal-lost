@@ -79,7 +79,8 @@ namespace SignalLost.AI
 
         private System.Collections.IEnumerator InitializeAgent()
         {
-            for (int i = 0; i < 90; i++)
+            // NavMesh bakes at scene start (runtime baker); retry placement until ready.
+            for (int i = 0; i < 600; i++)
             {
                 if (NavMesh.SamplePosition(_spawnPos, out var hit, 3f, NavMesh.AllAreas))
                 {
@@ -169,8 +170,16 @@ namespace SignalLost.AI
         private void TransitionTo(EnemyState next)
         {
             if (next == EnemyState.Dormant) return;
+            var wasDanger = State == EnemyState.Chase || State == EnemyState.Attack;
+            var isDanger = next == EnemyState.Chase || next == EnemyState.Attack;
             State = next;
             _stateTimer = searchDuration;
+            if (isDanger && !wasDanger)
+                EventBus.Publish(new EnemyChaseStarted(next == EnemyState.Attack));
+            else if (wasDanger && !isDanger)
+                EventBus.Publish(EnemyLostPlayer.Instance);
+            else if (next == EnemyState.Attack)
+                EventBus.Publish(new EnemyChaseStarted(true));
             if (agent == null || !agent.isOnNavMesh) return;
             switch (next)
             {

@@ -25,7 +25,8 @@ namespace SignalLost.Interaction
             var inv = interactor.GetComponent<SignalLost.Inventory.Inventory>();
             if (inv == null || inv.HighestAccessLevel() < requiredAccessLevel)
             {
-                EventBus.Publish(new SubtitleEvent("SYSTEM", "ACCESS LEVEL 1 REQUIRED", 2.5f));
+                EventBus.Publish(new SubtitleEvent("SYSTEM", "ARRAY CONSOLE — ACCESS LEVEL 1 REQUIRED", 2.5f));
+                EventBus.Publish(new DoorDenied("comm_array", requiredAccessLevel));
                 return false;
             }
             return true;

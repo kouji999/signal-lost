@@ -26,7 +26,7 @@ namespace SignalLost.Interaction
         {
             if (LifeSupportOnline) return "LIFE SUPPORT: ONLINE";
             if (CellInserted) return "[E] RESTART LIFE SUPPORT";
-            return "LIFE SUPPORT OFFLINE — POWER CELL REQUIRED";
+            return "OFFLINE — POWER CELL REQUIRED (STORAGE BAY, east)";
         }
 
         private void Awake()
@@ -52,7 +52,7 @@ namespace SignalLost.Interaction
                 }
                 if (cell == null)
                 {
-                    EventBus.Publish(new SubtitleEvent("SYSTEM", "INSERT POWER CELL TO RESTART", 3f));
+                    EventBus.Publish(new SubtitleEvent("A.R.I.A.", "The console needs a power cell. One was logged in the STORAGE BAY — the east door of this deck.", 5f));
                     return;
                 }
 

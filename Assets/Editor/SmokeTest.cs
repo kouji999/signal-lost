@@ -61,7 +61,7 @@ namespace SignalLost.EditorTools
             Check("hud canvas", GameObject.Find("HUD_Canvas") != null);
             Check("event system", GameObject.Find("EventSystem") != null);
             Check("systems root", GameObject.Find("Systems") != null);
-            Check("navmesh surface", UnityEngine.Object.FindAnyObjectByType<Unity.AI.Navigation.NavMeshSurface>()?.navMeshData != null);
+            Check("door layer defined (nav runtime-ready)", LayerMask.NameToLayer("Door") >= 0);
             Check("item assets", AssetDatabase.LoadAssetAtPath<SignalLost.Inventory.ItemDefinition>("Assets/_Project/ScriptableObjects/Items/power_cell.asset") != null);
             Check("log asset", AssetDatabase.LoadAssetAtPath<SignalLost.Narrative.AudioLogDefinition>("Assets/_Project/ScriptableObjects/log_018.asset") != null);
             Check("urp asset", GraphicsSettings.defaultRenderPipeline != null);

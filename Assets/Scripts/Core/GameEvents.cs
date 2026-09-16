@@ -124,4 +124,37 @@ namespace SignalLost.Core
     {
         public static readonly SliceCompleteEvent Instance = new();
     }
+
+    public readonly struct FootstepPlayed
+    {
+        public readonly bool Crouching;
+        public readonly bool Sprinting;
+        public FootstepPlayed(bool crouching, bool sprinting)
+        {
+            Crouching = crouching;
+            Sprinting = sprinting;
+        }
+    }
+
+    public readonly struct EnemyChaseStarted
+    {
+        public readonly bool Attacking;
+        public EnemyChaseStarted(bool attacking) => Attacking = attacking;
+    }
+
+    public readonly struct EnemyLostPlayer
+    {
+        public static readonly EnemyLostPlayer Instance = new();
+    }
+
+    public readonly struct DoorDenied
+    {
+        public readonly string DoorId;
+        public readonly int AccessLevel;
+        public DoorDenied(string doorId, int accessLevel)
+        {
+            DoorId = doorId;
+            AccessLevel = accessLevel;
+        }
+    }
 }

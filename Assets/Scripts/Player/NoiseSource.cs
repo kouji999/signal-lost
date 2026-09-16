@@ -19,6 +19,7 @@ namespace SignalLost.Player
             _timer = crouching ? interval * 1.6f : interval;
             var radius = crouching ? crouchRadius : sprinting ? sprintRadius : walkRadius;
             NoiseSystem.EmitNoise(transform.position, radius, gameObject);
+            SignalLost.Core.EventBus.Publish(new SignalLost.Core.FootstepPlayed(crouching, sprinting));
         }
 
         public static void EmitImpact(Vector3 position, float radius, GameObject source)

@@ -152,6 +152,31 @@ namespace SignalLost.Tests
         }
 
         [UnityTest]
+        public IEnumerator LockedDoor_Denial_AddsGuidanceObjective()
+        {
+            var received = 0;
+            System.Action<DoorDenied> handler = _ => received++;
+            EventBus.Subscribe(handler);
+
+            var door = SignalLost.Interaction.DoorRegistry.Find("door_comm");
+            Assert.That(door, Is.Not.Null);
+            var interactor = new GameObject("test-interactor");
+
+            Assert.That(door.Prompt, Does.Contain("LOCKED"), "prompt should show LOCKED, was: " + door.Prompt);
+            Assert.That(door.CanInteract(interactor), Is.False, "actor without keycard must be denied");
+
+            door.Interact(interactor);
+            yield return null;
+
+            Assert.That(received, Is.GreaterThanOrEqualTo(1), "DoorDenied event count");
+            Object.Destroy(interactor);
+            Assert.That(door.Prompt, Does.Contain("LOCKED"));
+            Assert.That(System.Linq.Enumerable.Any(ObjectiveSystem.Instance.ActiveObjectives, o => o.Id == "hint_keycard1"), Is.True);
+
+            EventBus.Unsubscribe(handler);
+        }
+
+        [UnityTest]
         public IEnumerator Flashlight_Toggle_DrainsBattery()
         {
             _player = GameObject.FindGameObjectWithTag("Player");

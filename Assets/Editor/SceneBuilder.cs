@@ -37,12 +37,7 @@ namespace SignalLost.EditorTools
         static int LPlayer => LayerMask.NameToLayer("Player");
         static int LEnemy => LayerMask.NameToLayer("Enemy");
         static int LInteractable => LayerMask.NameToLayer("Interactable");
-
-        public static void BuildMainNoNav()
-        {
-            SkipNavBake = true;
-            BuildMain();
-        }
+        static int LDoor => LayerMask.NameToLayer("Door");
 
         [MenuItem("SignalLost/Build Main Scene")]
         public static void BuildMain()
@@ -72,7 +67,7 @@ namespace SignalLost.EditorTools
             BuildHud();
 
             WireScene();
-            if (!SkipNavBake) BakeNavMesh(level);
+            BakeNavMesh(level);
 
             EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene(), ScenePath);
@@ -104,11 +99,11 @@ namespace SignalLost.EditorTools
             var assets = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset");
             var tagManager = new SerializedObject(assets[0]);
             var layers = tagManager.FindProperty("layers");
-            for (int i = 8; i < 12; i++)
+            for (int i = 8; i < 13; i++)
             {
                 var el = layers.GetArrayElementAtIndex(i);
                 if (string.IsNullOrEmpty(el.stringValue))
-                    el.stringValue = i == 8 ? "World" : i == 9 ? "Player" : i == 10 ? "Enemy" : "Interactable";
+                    el.stringValue = i == 8 ? "World" : i == 9 ? "Player" : i == 10 ? "Enemy" : i == 11 ? "Interactable" : "Door";
             }
             tagManager.ApplyModifiedPropertiesWithoutUndo();
         }
@@ -267,7 +262,8 @@ namespace SignalLost.EditorTools
             dict["wall"] = Make("wall_panel", new Color(0.16f, 0.17f, 0.19f), 0.3f, 0.3f);
             dict["ceiling"] = Make("ceiling", new Color(0.08f, 0.085f, 0.1f), 0.2f, 0.1f);
             dict["pod"] = Make("pod_shell", new Color(0.22f, 0.24f, 0.27f), 0.6f, 0.7f);
-            dict["door"] = Make("door_metal", new Color(0.25f, 0.26f, 0.28f), 0.55f, 0.8f);
+            dict["door"] = Make("door_metal", new Color(0.34f, 0.36f, 0.4f), 0.5f, 0.85f);
+            dict["frameDark"] = Make("frame_dark", new Color(0.03f, 0.032f, 0.04f), 0.2f, 0.4f);
             dict["terminal"] = Make("terminal_body", new Color(0.12f, 0.13f, 0.15f), 0.4f, 0.5f);
             dict["screenRed"] = Make("screen_red", new Color(0.1f, 0.02f, 0.02f), 0.8f, 0f, new Color(2.6f, 0.12f, 0.1f));
             dict["screenGreen"] = Make("screen_green", new Color(0.02f, 0.1f, 0.04f), 0.8f, 0f, new Color(0.1f, 2.6f, 0.5f));
@@ -393,7 +389,7 @@ namespace SignalLost.EditorTools
         }
 
         static GameObject BuildDoor(string id, Vector3 center, char axis, Dictionary<string, Material> mats,
-            Transform parent, Material signMat = null, float wallH = 3.4f)
+            Transform parent, Material signMat = null, float wallH = 3.4f, int access = 0)
         {
             var root = new GameObject(id);
             root.transform.position = center;
@@ -407,6 +403,26 @@ namespace SignalLost.EditorTools
             var panel = Cube($"{id}_Panel", new Vector3(center.x, panelY, center.z), new Vector3(panelW, 2.6f, 0.12f), mats["door"], LWorld);
             panel.transform.SetParent(root.transform, true);
             panel.transform.localPosition = new Vector3(0f, 1.3f, 0f);
+            panel.layer = LDoor;
+
+            void PanelDeco(string decoName, Vector3 localPos, Vector3 scale, Material mat)
+            {
+                var d = new GameObject(decoName);
+                d.transform.SetParent(panel.transform);
+                d.transform.localPosition = localPos;
+                d.transform.localScale = scale;
+                var mf = d.AddComponent<MeshFilter>();
+                mf.sharedMesh = CreateUnitCube();
+                var mr = d.AddComponent<MeshRenderer>();
+                mr.sharedMaterial = mat;
+                d.layer = LDoor;
+            }
+
+            float zOff = 0.62f;
+            PanelDeco($"{id}_SeamA", new Vector3(0, 0.015f, zOff), new Vector3(0.92f, 0.03f, 0.02f), mats["frameDark"]);
+            PanelDeco($"{id}_SeamB", new Vector3(0, 0.015f, -zOff), new Vector3(0.92f, 0.03f, 0.02f), mats["frameDark"]);
+            PanelDeco($"{id}_StripeL", new Vector3(-0.5f, 0, zOff), new Vector3(0.035f, 0.34f, 0.02f), mats["screenAmber"]);
+            PanelDeco($"{id}_StripeR", new Vector3(0.5f, 0, -zOff), new Vector3(0.035f, 0.34f, 0.02f), mats["screenAmber"]);
 
             float sideOff = (panelW + fillerW) / 2f;
             Vector3 fl = axis == 'z' ? new Vector3(center.x - sideOff, panelY, center.z) : new Vector3(center.x, panelY, center.z - sideOff);
@@ -415,6 +431,29 @@ namespace SignalLost.EditorTools
 
             Cube($"{id}_FillerL", fl, fscale, mats["wall"], LWorld).transform.SetParent(root.transform, true);
             Cube($"{id}_FillerR", fr, fscale, mats["wall"], LWorld).transform.SetParent(root.transform, true);
+
+            Vector3 so1 = axis == 'z' ? new Vector3(0.14f, 2.9f, 0.06f) : new Vector3(0.06f, 2.9f, 0.14f);
+            for (int s = -1; s <= 1; s += 2)
+            {
+                Vector3 fp = axis == 'z'
+                    ? new Vector3(center.x + s * 1.52f, center.y + 1.45f, center.z)
+                    : new Vector3(center.x, center.y + 1.45f, center.z + s * 1.52f);
+                Cube($"{id}_Frame{(s < 0 ? "L" : "R")}", fp, so1, mats["frameDark"], LWorld).transform.SetParent(root.transform, true);
+            }
+            Vector3 ftopPos = axis == 'z'
+                ? new Vector3(center.x, center.y + 2.88f, center.z)
+                : new Vector3(center.x, center.y + 2.88f, center.z);
+            Vector3 ftopScale = axis == 'z' ? new Vector3(3.18f, 0.14f, 0.06f) : new Vector3(0.06f, 0.14f, 3.18f);
+            Cube($"{id}_FrameTop", ftopPos, ftopScale, mats["frameDark"], LWorld).transform.SetParent(root.transform, true);
+
+            var ledMat = access > 0 ? mats["screenRed"] : mats["screenGreen"];
+            for (int s = -1; s <= 1; s += 2)
+            {
+                Vector3 lp = axis == 'z'
+                    ? new Vector3(center.x + 1.28f, center.y + 2.45f, center.z + s * 0.13f)
+                    : new Vector3(center.x + s * 0.13f, center.y + 2.45f, center.z + 1.28f);
+                Cube($"{id}_Led{(s < 0 ? "S" : "N")}", lp, new Vector3(0.1f, 0.1f, 0.04f), ledMat, LWorld).transform.SetParent(root.transform, true);
+            }
 
             if (signMat != null)
             {
@@ -445,8 +484,21 @@ namespace SignalLost.EditorTools
             var so = new SerializedObject(door);
             so.FindProperty("doorId").stringValue = id;
             so.FindProperty("slidePanel").objectReferenceValue = panel.transform;
+            so.FindProperty("accessLevel").intValue = access;
+            if (access > 0)
+                so.FindProperty("lockedHint").stringValue = $"ACCESS DENIED - LEVEL {access} KEYCARD REQUIRED";
             so.ApplyModifiedPropertiesWithoutUndo();
             return root;
+        }
+
+        static Mesh _unitCube;
+        static Mesh CreateUnitCube()
+        {
+            if (_unitCube != null) return _unitCube;
+            var tmp = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            _unitCube = tmp.GetComponent<MeshFilter>().sharedMesh;
+            UnityEngine.Object.DestroyImmediate(tmp);
+            return _unitCube;
         }
 
         static void AddSign(string name, Vector3 center, Vector3 size, string label, Transform parent)
@@ -546,7 +598,7 @@ namespace SignalLost.EditorTools
 
             var perception = go.AddComponent<EnemyPerception>();
             SetPrivateField(perception, "eye", eye.transform);
-            SetPrivateFieldInt(perception, "occlusionMask", 1 << LWorld);
+            SetPrivateFieldInt(perception, "occlusionMask", (1 << LWorld) | (1 << LDoor));
 
             var echo = go.AddComponent<EchoController>();
             SetPrivateField(echo, "perception", perception);
@@ -657,10 +709,7 @@ namespace SignalLost.EditorTools
             RoomSealed("HabitationHub", new Vector3(0, 1.6f, 22), new Vector3(14, 3.4f, 14), mats, root.transform,
                 openS: true, openN: true, openE: true, openW: true);
             BuildDoor("door_hub", new Vector3(0, 0.1f, 15f), 'z', mats, root.transform, mats["screenGreen"], 3.4f);
-            var doorComm = BuildDoor("door_comm", new Vector3(0, 0.1f, 29f), 'z', mats, root.transform, mats["screenRed"], 3.4f);
-            var soComm = new SerializedObject(doorComm.GetComponent<DoorController>());
-            soComm.FindProperty("accessLevel").intValue = 1;
-            soComm.ApplyModifiedPropertiesWithoutUndo();
+            var doorComm = BuildDoor("door_comm", new Vector3(0, 0.1f, 29f), 'z', mats, root.transform, mats["screenRed"], 3.4f, access: 1);
             BuildDoor("door_medbay", new Vector3(-7.5f, 0.1f, 22f), 'x', mats, root.transform, mats["screenGreen"], 3.2f);
             BuildDoor("door_storage", new Vector3(7.5f, 0.1f, 22f), 'x', mats, root.transform, mats["screenAmber"], 3.2f);
 
@@ -738,10 +787,7 @@ namespace SignalLost.EditorTools
                 ("A.R.I.A.", "That does not match my chronometer. I recommend you stop asking questions.", 4f));
 
             // ================= ELEVATOR DESCENT (north of Comm) =================
-            var doorElev = BuildDoor("door_elevator", new Vector3(0, 0.1f, 48f), 'z', mats, root.transform, mats["screenRed"], 3.4f);
-            var soElev = new SerializedObject(doorElev.GetComponent<DoorController>());
-            soElev.FindProperty("accessLevel").intValue = 2;
-            soElev.ApplyModifiedPropertiesWithoutUndo();
+            var doorElev = BuildDoor("door_elevator", new Vector3(0, 0.1f, 48f), 'z', mats, root.transform, mats["screenRed"], 3.4f, access: 2);
             RoomSealed("ElevatorLobby", new Vector3(0, 1.6f, 50), new Vector3(8, 3.4f, 4), mats, root.transform, openS: true, openN: true);
             DescendShaft("Descent", new Vector3(0, -1.6f, 62f), 20f, 3f, 3f, 3f, mats, root.transform, fromNorth: true);
 
@@ -1013,7 +1059,7 @@ namespace SignalLost.EditorTools
 
             var perception = go.AddComponent<EnemyPerception>();
             SetPrivateField(perception, "eye", eye.transform);
-            SetPrivateFieldInt(perception, "occlusionMask", 1 << LWorld);
+            SetPrivateFieldInt(perception, "occlusionMask", (1 << LWorld) | (1 << LDoor));
 
             var echo = go.AddComponent<EchoController>();
             SetPrivateField(echo, "perception", perception);
@@ -1058,6 +1104,7 @@ namespace SignalLost.EditorTools
             root.AddComponent<LogLibrary>();
             root.AddComponent<SaveManager>();
             root.AddComponent<AudioRig>();
+            root.AddComponent<SignalLost.Audio.HorrorAudioDirector>();
 
             var db = root.AddComponent<ItemDatabase>();
             db.Init(items.Values);
@@ -1180,55 +1227,14 @@ namespace SignalLost.EditorTools
             return null;
         }
 
-        public static bool SkipNavBake; // diagnostics switch
-
         static void BakeNavMesh(GameObject level)
         {
-            // Validate bake works (editor, throwaway), then leave a clean un-baked surface in the
-            // scene: the player bakes at startup (autoBuildEnabled). Keeps binary navmesh OUT of
-            // the scene file — embedded NavMeshData blobs corrupt level0 in Unity 6.6 builds.
-            var testSurface = level.AddComponent<NavMeshSurface>();
-            testSurface.collectObjects = CollectObjects.All;
-            testSurface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
-            testSurface.layerMask = 1 << LWorld;
-            RaiseDoorPanels();
-            testSurface.BuildNavMesh();
-            LowerDoorPanels();
-            UnityEngine.Object.DestroyImmediate(testSurface);
-
-            var runtime = level.AddComponent<NavMeshSurface>();
-            runtime.collectObjects = CollectObjects.All;
-            runtime.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
-            runtime.layerMask = 1 << LWorld;
-            level.AddComponent<SignalLost.World.NavMeshRuntimeBaker>();
-
-            Debug.Log("[SceneBuilder] NAVMESH_RUNTIME_BAKE_READY");
+            // NavMesh is built entirely at runtime by NavMeshBoot (code-only, nothing serialized
+            // into the scene). Even the throwaway editor validation surface was observed to
+            // leave corrupting traces in level0 on 6000.6.0f1, so the scene stays nav-empty.
+            Debug.Log("[SceneBuilder] NAVMESH_RUNTIME_ONLY");
         }
 
-        static readonly Dictionary<DoorController, Vector3> RaisedPanels = new();
-
-        static void RaiseDoorPanels()
-        {
-            RaisedPanels.Clear();
-            foreach (var d in UnityEngine.Object.FindObjectsByType<DoorController>())
-            {
-                var panel = d.GetComponentInChildren<MeshRenderer>(true);
-                if (panel == null) continue;
-                RaisedPanels[d] = panel.transform.position;
-                panel.transform.position += Vector3.up * 5f;
-            }
-        }
-
-        static void LowerDoorPanels()
-        {
-            foreach (var kv in RaisedPanels)
-            {
-                if (kv.Key == null) continue;
-                var panel = kv.Key.GetComponentInChildren<MeshRenderer>(true);
-                if (panel != null) panel.transform.position = kv.Value;
-            }
-            RaisedPanels.Clear();
-        }
 
         static GameObject BuildHud()
         {
@@ -1378,6 +1384,26 @@ namespace SignalLost.EditorTools
 
             var pause = canvasGo.AddComponent<SignalLost.Narrative.PauseMenu>();
             SetPrivateField(pause, "panel", pauseGroup);
+
+            var invRoot = new GameObject("InventoryPanel");
+            invRoot.transform.SetParent(canvasGo.transform);
+            var invBg = invRoot.AddComponent<Image>();
+            invBg.sprite = white;
+            invBg.color = new Color(0.03f, 0.035f, 0.045f, 0.94f);
+            var invRt = invRoot.GetComponent<RectTransform>();
+            invRt.anchorMin = invRt.anchorMax = new Vector2(0.5f, 0.5f);
+            invRt.anchoredPosition = new Vector2(0, 40);
+            invRt.sizeDelta = new Vector2(560, 340);
+            var invGroup = invRoot.AddComponent<CanvasGroup>();
+            invGroup.alpha = 0f;
+            var invText = CreateText(invRoot.transform, "InvText", font, new Vector2(0, 1), new Vector2(28, -30), new Vector2(520, 300), 16, TextAnchor.UpperLeft);
+            invText.color = Color.white;
+            var invHint = CreateText(invRoot.transform, "InvHint", font, new Vector2(0.5f, 0), new Vector2(0, 16), new Vector2(520, 24), 13, TextAnchor.MiddleCenter);
+            invHint.color = new Color(0.5f, 0.55f, 0.6f);
+            invHint.text = "resources are limited. choose what you carry.";
+            var invPanel = canvasGo.AddComponent<SignalLost.UI.InventoryPanel>();
+            SetPrivateField(invPanel, "panel", invGroup);
+            SetPrivateField(invPanel, "content", invText);
 
             var intro = canvasGo.AddComponent<IntroScreen>();
             SetPrivateField(intro, "root", introGroup);
