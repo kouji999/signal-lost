@@ -24,3 +24,5 @@ AutopilotLogs/
 .sys/
 .DS_Store
 Thumbs.db
+
+Assets/_Recovery/
